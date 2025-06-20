@@ -23,9 +23,11 @@ void line_delete_char(Line *line, size_t idx);
 void line_insert_str(Line *line, size_t idx, const char *str);
 void line_delete_str(Line *line, size_t idx, size_t len);
 
+char *line_copy(Line *line, size_t idx, long len, bool kill);
+
 void line_shift_chars_forwards(Line *line, size_t idx, size_t by);
 void line_shift_chars_backwards(Line *line, size_t idx, size_t by);
 
-void line_copy(Line *from, Line *to, bool deep);
+void line_clone(Line *from, Line *to, bool deep);
 
 #endif // !GUARD_EDIT_LINE_H_

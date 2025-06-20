@@ -30,10 +30,12 @@ void file_render_line(File *file, size_t idx);
 void file_insert_char(File *file, size_t line, size_t idx, char c);
 void file_delete_char(File *file, size_t line, size_t idx);
 
+void file_break_line(File *file, size_t line, size_t idx);
+
 void file_insert_empty_line(File *file, size_t idx);
 
 void file_insert_line(File *file, size_t idx, Line *line);
-void file_delete_line(File *file, size_t idx, Line *line);
+void file_delete_line(File *file, size_t idx);
 
 void file_shift_lines_up(File *file, size_t idx);
 void file_shift_lines_down(File *file, size_t idx);

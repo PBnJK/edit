@@ -17,6 +17,7 @@ static bool _is_string_full(Line *line);
 
 static size_t _next_power_of_two(size_t n);
 
+/* Creates a new empty line */
 void line_new(Line *line) {
 	line->text = malloc(sizeof(*line->text) * 8);
 	if( !line->text ) {
@@ -30,12 +31,16 @@ void line_new(Line *line) {
 	line->length = 0;
 }
 
+/* Frees the line from memory */
 void line_free(Line *line) {
 	free(line->text);
 	line->length = 0;
 	line->capacity = 0;
 }
 
+/* Erases a line's contents
+ * Will resize its buffer
+ */
 void line_erase(Line *line) {
 	line->text = realloc(line->text, sizeof(*line->text) * 8);
 	if( !line->text ) {
@@ -49,11 +54,13 @@ void line_erase(Line *line) {
 	line->length = 0;
 }
 
+/* Renders the line's contents */
 void line_render(Line *line) {
 	clrtoeol();
 	addnstr(line->text, line->length);
 }
 
+/* Inserts the character @c into column @idx */
 void line_insert_char(Line *line, size_t idx, char c) {
 	if( idx < line->length ) {
 		line_shift_chars_forwards(line, idx, 1);
@@ -67,6 +74,7 @@ void line_insert_char(Line *line, size_t idx, char c) {
 	line->text[idx] = c;
 }
 
+/* Deletes the character at column @idx */
 void line_delete_char(Line *line, size_t idx) {
 	if( idx == 0 ) {
 		exit(1); /* TODO: Panic more gracefully */
@@ -82,6 +90,28 @@ void line_insert_str(Line *line, size_t idx, const char *str) {
 	memcpy(line->text + idx, str, len);
 }
 
+/* Copies @len characters starting at column @idx inclusive into a new buffer
+ * If @len is <= 0, copies up to the end of the line instead
+ * If @kill is true, also deletes the characters from the line
+ */
+char *line_copy(Line *line, size_t idx, long len, bool kill) {
+	size_t u_len;
+	if( len <= 0 ) {
+		u_len = line->length - idx;
+	} else {
+		u_len = (size_t)len;
+	}
+
+	char *buf = malloc(u_len);
+	memcpy(buf, line->text + idx, u_len);
+
+	if( kill ) {
+		line_shift_chars_backwards(line, idx + u_len, u_len);
+	}
+
+	return buf;
+}
+
 /* Moves characters forwards by a given amount @by
  * Grows the lines array as needed
  */
@@ -92,7 +122,8 @@ void line_shift_chars_forwards(Line *line, size_t idx, size_t by) {
 		_grow_string_to(line, total);
 	}
 
-	for( size_t i = line->length; i >= idx; --i ) {
+	long s_idx = (long)idx;
+	for( long i = (long)line->length; i >= s_idx; --i ) {
 		line->text[i + by] = line->text[i];
 		line->text[i] = ' ';
 	}
@@ -110,9 +141,16 @@ void line_shift_chars_backwards(Line *line, size_t idx, size_t by) {
 	}
 
 	line->length -= by;
+	if( line->length > 0 ) {
+		_grow_string_to(line, _next_power_of_two(line->length));
+	}
 }
 
-void line_copy(Line *from, Line *to, bool deep) {
+/* Copies the contents of line @from into @to
+ * If @deep is false, the two lines will share a text pointer
+ * Otherwise, the text will be copied into a new buffer
+ */
+void line_clone(Line *from, Line *to, bool deep) {
 	to->length = from->length;
 	to->capacity = from->capacity;
 

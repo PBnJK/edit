@@ -15,6 +15,7 @@ static void _fix_cursor_x(Edit *edit);
 
 static void _newline(Edit *edit);
 
+/* Initializes the editor */
 void edit_new(Edit *edit, const char *filename) {
 	edit->line = 0;
 	edit->idx = 0;
@@ -29,6 +30,7 @@ void edit_new(Edit *edit, const char *filename) {
 	file_new(&edit->file, filename);
 }
 
+/* Frees the editor from memory */
 void edit_free(Edit *edit) {
 	file_free(&edit->file);
 }
@@ -36,7 +38,7 @@ void edit_free(Edit *edit) {
 /* Updates the editor
  *
  * TODO:
- * - Vim-like "INSERT" and "NORMAL" modes, better keybind
+ * - Vim-like "INSERT" and "NORMAL" modes, better keybinds
  * - Saving
  */
 bool edit_update(Edit *edit) {
@@ -74,6 +76,7 @@ bool edit_update(Edit *edit) {
 	return true;
 }
 
+/* Inserts a character under the cursor */
 void edit_insert_char(Edit *edit, char c) {
 	file_insert_char(&edit->file, edit->line, edit->idx, c);
 	++edit->idx;
@@ -82,6 +85,7 @@ void edit_insert_char(Edit *edit, char c) {
 	edit_render_current_line(edit);
 }
 
+/* Deletes the character under the cursor */
 void edit_delete_char(Edit *edit) {
 	if( edit->idx == 0 ) {
 		/* TODO: Append to the end of the last line */
@@ -95,6 +99,7 @@ void edit_delete_char(Edit *edit) {
 	edit_render_current_line(edit);
 }
 
+/* If possible, moves the cursor up one row */
 void edit_move_up(Edit *edit) {
 	if( edit->y <= 0 ) {
 		edit->y = 0;
@@ -109,6 +114,7 @@ void edit_move_up(Edit *edit) {
 	refresh();
 }
 
+/* If possible, moves the cursor down one row */
 void edit_move_down(Edit *edit) {
 	const size_t lines = edit->file.length;
 	if( edit->y >= lines - 1 ) {
@@ -123,6 +129,7 @@ void edit_move_down(Edit *edit) {
 	refresh();
 }
 
+/* If possible, moves the cursor left one column */
 void edit_move_left(Edit *edit) {
 	if( edit->x <= 0 ) {
 		edit->x = 0;
@@ -136,6 +143,7 @@ void edit_move_left(Edit *edit) {
 	refresh();
 }
 
+/* If possible, moves the cursor right one column */
 void edit_move_right(Edit *edit) {
 	if( edit->x >= edit->w - 1 ) {
 		edit->x = edit->w - 1;
@@ -161,6 +169,7 @@ void edit_set_status(Edit *edit, const char *msg) {
 	edit->msg_len = strlen(msg);
 }
 
+/* Updates the status bar */
 void edit_update_status(Edit *edit) {
 	const size_t bottom = edit->h - 1;
 
@@ -182,36 +191,44 @@ void edit_update_status(Edit *edit) {
 	refresh();
 }
 
+/* Renders the current file */
 void edit_render(Edit *edit) {
 	file_render(&edit->file);
 
 	move(edit->y, edit->x);
 }
 
+/* Renders the current line */
 void edit_render_current_line(Edit *edit) {
 	edit_render_line(edit, edit->line);
 }
 
+/* Renders a line in the file */
 void edit_render_line(Edit *edit, size_t idx) {
 	file_render_line(&edit->file, idx);
 }
 
+/* Quits the editor */
 void edit_quit(Edit *edit) {
 	edit_free(edit);
 }
 
+/* Returns the line under the cursor */
 Line *edit_get_current_line(Edit *edit) {
 	return edit_get_line(edit, edit->line);
 }
 
+/* Returns the line at row @idx */
 Line *edit_get_line(Edit *edit, size_t idx) {
 	return file_get_line(&edit->file, idx);
 }
 
+/* Returns the length of the current line */
 long edit_get_current_line_length(Edit *edit) {
 	return edit_get_line_length(edit, edit->line);
 }
 
+/* Returns the length of the line at row @idx */
 long edit_get_line_length(Edit *edit, size_t idx) {
 	return file_get_line_length(&edit->file, idx);
 }
@@ -231,7 +248,7 @@ static void _fix_cursor_x(Edit *edit) {
 }
 
 static void _newline(Edit *edit) {
-	file_insert_empty_line(&edit->file, ++edit->line);
+	file_break_line(&edit->file, edit->line++, edit->idx);
 	++edit->y;
 
 	edit->x = 0;

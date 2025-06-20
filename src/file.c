@@ -28,6 +28,7 @@ bool file_new(File *file, const char *filename) {
 	return file_load(file, filename);
 }
 
+/* Frees a file from memory */
 void file_free(File *file) {
 	memset(file->name, 0, MAX_FILE_NAME_SIZE);
 
@@ -99,6 +100,7 @@ bool file_load_from_fp(File *file, FILE *fp) {
 	return true;
 }
 
+/* Renders the file's contents */
 void file_render(File *file) {
 	for( size_t y = 0; y < file->length; ++y ) {
 		move(y, 0);
@@ -106,19 +108,60 @@ void file_render(File *file) {
 	}
 }
 
+/* Renders a single line from the file */
 void file_render_line(File *file, size_t idx) {
 	move(idx, 0);
 	line_render(&file->lines[idx]);
 }
 
+/* Inserts a character into a line in the file */
 void file_insert_char(File *file, size_t line, size_t idx, char c) {
 	line_insert_char(&file->lines[line], idx, c);
 }
 
+/* Deletes a character from a line in the file */
 void file_delete_char(File *file, size_t line, size_t idx) {
 	line_delete_char(&file->lines[line], idx);
 }
 
+/* Inserts a line break into the file */
+void file_break_line(File *file, size_t line, size_t idx) {
+	Line new_line;
+	line_new(&new_line);
+
+	/* If we're at the beginning of the line, insert the empty line here */
+	if( idx == 0 ) {
+		file_insert_line(file, line, &new_line);
+		return;
+	}
+
+	Line *curr_line = file_get_line(file, line);
+	if( !curr_line ) {
+		fprintf(stderr, "Current line is null!");
+		exit(1);
+	}
+
+	if( idx > curr_line->length - 1 ) {
+		fprintf(stderr, "Cursor is beyond the line's limits!");
+		exit(1);
+	}
+
+	/* If we're at the end of the line, insert the empty line on the next row */
+	if( idx == curr_line->length ) {
+		file_insert_line(file, line + 1, &new_line);
+		return;
+	}
+
+	char *buf = line_copy(curr_line, idx, -1, true);
+	line_insert_str(&new_line, 0, buf);
+	free(buf);
+
+	file_insert_line(file, line + 1, &new_line);
+}
+
+/* Adds a new empty line to the file
+ * Same as calling @file_insert_line with an empty line
+ */
 void file_insert_empty_line(File *file, size_t idx) {
 	Line line;
 	line_new(&line);
@@ -126,13 +169,15 @@ void file_insert_empty_line(File *file, size_t idx) {
 	file_insert_line(file, idx, &line);
 }
 
+/* Adds a new line to the file */
 void file_insert_line(File *file, size_t idx, Line *line) {
 	file_shift_lines_down(file, idx);
-	line_copy(line, &file->lines[idx], false);
+	line_clone(line, &file->lines[idx], false);
 
 	++file->length;
 }
 
+/* Shifts lines starting at @idx one row down */
 void file_shift_lines_down(File *file, size_t idx) {
 	if( file->length == 0 ) {
 		return;
@@ -151,14 +196,16 @@ void file_shift_lines_down(File *file, size_t idx) {
 	line_new(&file->lines[idx]);
 }
 
+/* Returns the line at @idx */
 Line *file_get_line(File *file, size_t idx) {
-	if( idx >= file->length - 1 ) {
+	if( idx >= file->length ) {
 		return NULL;
 	}
 
 	return &file->lines[idx];
 }
 
+/* Returns the length of line @idx */
 long file_get_line_length(File *file, size_t idx) {
 	Line *line = file_get_line(file, idx);
 	if( line ) {
