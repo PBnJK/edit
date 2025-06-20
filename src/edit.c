@@ -17,13 +17,14 @@
 
 #include "edit.h"
 
-static void _handle_command_typing(Edit *edit, int ch);
 static void _exit_command_typing(Edit *edit);
 static void _render_command(Edit *edit);
 static void _clear_command(Edit *edit);
 static void _handle_command(Edit *edit);
 
-static void _fix_cursor_x(Edit *edit);
+static void _update_gutter(Edit *edit);
+static void _update_cursor_x(Edit *edit);
+
 static void _newline(Edit *edit);
 
 static char *_get_mode_string(Edit *edit);
@@ -32,6 +33,7 @@ static char *_get_mode_string(Edit *edit);
 void edit_new(Edit *edit, const char *filename) {
 	edit->line = 0;
 	edit->idx = 0;
+
 	edit->x = 0;
 	edit->y = 0;
 
@@ -44,10 +46,13 @@ void edit_new(Edit *edit, const char *filename) {
 
 	edit->mode = EDIT_MODE_NORMAL;
 
-	edit->is_typing_cmd = false;
 	line_new(&edit->cmd);
 
 	file_new(&edit->file, filename);
+	_update_gutter(edit);
+
+	edit->x = edit->gutter;
+
 	edit_render(edit);
 	edit_render_status(edit);
 }
@@ -57,12 +62,7 @@ void edit_free(Edit *edit) {
 	file_free(&edit->file);
 }
 
-/* Updates the editor
- *
- * TODO:
- * - Vim-like "INSERT" and "NORMAL" modes, better keybinds
- * - Saving
- */
+/* Updates the editor */
 void edit_update(Edit *edit) {
 	int ch = getch();
 	switch( edit->mode ) {
@@ -75,36 +75,45 @@ void edit_update(Edit *edit) {
 	case EDIT_MODE_VISUAL:
 		edit_mode_visual(edit, ch);
 		break;
+	case EDIT_MODE_COMMAND:
+		edit_mode_command(edit, ch);
 	}
 
 	edit_render_status(edit);
 }
 
+/* Handles the NORMAL mode
+ *
+ * In this mode, you cannot type characters directly, but can instead use
+ * shortcuts to perform certain actions
+ */
 void edit_mode_normal(Edit *edit, int ch) {
-	if( edit->is_typing_cmd ) {
-		_handle_command_typing(edit, ch);
-		return;
-	}
-
 	switch( ch ) {
 	case ':':
-		edit->is_typing_cmd = true;
+		edit->mode = EDIT_MODE_COMMAND;
 		_render_command(edit);
 		break;
 	case 'i':
 		edit->mode = EDIT_MODE_INSERT;
 		break;
-	case KEY_BACKSPACE:
+	case 'v':
+		edit->mode = EDIT_MODE_VISUAL;
+		break;
 	case 'h':
+	case KEY_LEFT:
+	case KEY_BACKSPACE:
 		edit_move_left(edit);
 		break;
 	case 'j':
+	case KEY_DOWN:
 		edit_move_down(edit);
 		break;
 	case 'k':
+	case KEY_UP:
 		edit_move_up(edit);
 		break;
 	case 'l':
+	case KEY_RIGHT:
 		edit_move_right(edit);
 		break;
 	case 'q':
@@ -113,6 +122,11 @@ void edit_mode_normal(Edit *edit, int ch) {
 	}
 }
 
+/* Handles the INSERT mode
+ *
+ * This mode functions much like your usual run-of-the-mill IDEs and text
+ * editors. You type characters and they show up
+ */
 void edit_mode_insert(Edit *edit, int ch) {
 	switch( ch ) {
 	case CTRL('['):
@@ -142,9 +156,48 @@ void edit_mode_insert(Edit *edit, int ch) {
 	}
 }
 
+/* Handles the VISUAL mode
+ *
+ * This mode allows you to select text and perform commands on the selection
+ */
 void edit_mode_visual(Edit *edit, int ch) {
-	UNUSED(edit);
-	UNUSED(ch);
+	switch( ch ) {
+	case CTRL('['):
+	case CTRL('n'):
+		edit->mode = EDIT_MODE_NORMAL;
+		break;
+	}
+}
+
+/* Handles the COMMAND mode
+ *
+ * This mode allows you to run commands that either affect the text or perform
+ * meta actions like saving, loading, etc.
+ */
+void edit_mode_command(Edit *edit, int ch) {
+	/* Run command */
+	if( ch == '\n' ) {
+		_handle_command(edit);
+		_exit_command_typing(edit);
+		return;
+	}
+
+	/* Erase character */
+	if( ch == KEY_BACKSPACE ) {
+		line_delete_char_at_end(&edit->cmd);
+		_render_command(edit);
+
+		return;
+	}
+
+	/* Ignore unprintable characters */
+	if( ch < 32 || ch > 126 ) {
+		return;
+	}
+
+	/* Append character */
+	line_insert_char_at_end(&edit->cmd, ch);
+	_render_command(edit);
 }
 
 /* Inserts a character under the cursor */
@@ -158,8 +211,14 @@ void edit_insert_char(Edit *edit, char c) {
 
 /* Deletes the character under the cursor */
 void edit_delete_char(Edit *edit) {
+	/* If at the beginning of the line, append it to the previous and move the
+	 * lines below one row up
+	 */
 	if( edit->idx == 0 ) {
-		/* TODO: Append to the end of the last line */
+		edit->idx = file_move_line_up(&edit->file, edit->line);
+		_update_gutter(edit);
+		edit_move_up(edit);
+		edit_render(edit);
 		return;
 	}
 
@@ -179,7 +238,7 @@ void edit_move_up(Edit *edit) {
 
 	--edit->y;
 	--edit->line;
-	_fix_cursor_x(edit);
+	_update_cursor_x(edit);
 
 	move(edit->y, edit->x);
 	refresh();
@@ -195,21 +254,21 @@ void edit_move_down(Edit *edit) {
 
 	++edit->y;
 	++edit->line;
-	_fix_cursor_x(edit);
+	_update_cursor_x(edit);
 
 	refresh();
 }
 
 /* If possible, moves the cursor left one column */
 void edit_move_left(Edit *edit) {
-	if( edit->x <= 0 ) {
-		edit->x = 0;
+	if( edit->x <= edit->gutter ) {
+		edit->x = edit->gutter;
 		return;
 	}
 
 	--edit->x;
 	--edit->idx;
-	_fix_cursor_x(edit);
+	_update_cursor_x(edit);
 
 	refresh();
 }
@@ -223,7 +282,7 @@ void edit_move_right(Edit *edit) {
 
 	++edit->x;
 	++edit->idx;
-	_fix_cursor_x(edit);
+	_update_cursor_x(edit);
 
 	refresh();
 }
@@ -271,7 +330,9 @@ void edit_render_status(Edit *edit) {
 
 /* Renders the current file */
 void edit_render(Edit *edit) {
-	file_render(&edit->file);
+	erase();
+	_update_gutter(edit);
+	file_render(&edit->file, edit->gutter);
 
 	move(edit->y, edit->x);
 }
@@ -283,7 +344,8 @@ void edit_render_current_line(Edit *edit) {
 
 /* Renders a line in the file */
 void edit_render_line(Edit *edit, size_t idx) {
-	file_render_line(&edit->file, idx);
+	_update_gutter(edit);
+	file_render_line(&edit->file, idx, edit->gutter);
 }
 
 /* Quits the editor */
@@ -312,40 +374,10 @@ long edit_get_line_length(Edit *edit, size_t idx) {
 	return file_get_line_length(&edit->file, idx);
 }
 
-static void _handle_command_typing(Edit *edit, int ch) {
-	/* Run command */
-	if( ch == '\n' ) {
-		_handle_command(edit);
-		_exit_command_typing(edit);
-		return;
-	}
-
-	/* Erase character */
-	if( ch == KEY_BACKSPACE ) {
-		line_delete_char_at_end(&edit->cmd);
-		if( edit->cmd.length == 0 ) {
-			_exit_command_typing(edit);
-		} else {
-			_render_command(edit);
-		}
-
-		return;
-	}
-
-	/* Ignore unprintable characters */
-	if( ch < 33 || ch > 126 ) {
-		return;
-	}
-
-	/* Append character */
-	line_insert_char_at_end(&edit->cmd, ch);
-	_render_command(edit);
-}
-
 static void _exit_command_typing(Edit *edit) {
 	line_erase(&edit->cmd);
 	_clear_command(edit);
-	edit->is_typing_cmd = false;
+	edit->mode = EDIT_MODE_NORMAL;
 }
 
 static void _render_command(Edit *edit) {
@@ -374,6 +406,10 @@ static void _handle_command(Edit *edit) {
 	char *cmd = line_get_c_str(&edit->cmd);
 	const int len = strlen(cmd);
 
+	if( len == 0 ) {
+		return;
+	}
+
 	if( strncmp(cmd, "q", len) == 0 ) {
 		edit_quit(edit);
 		return;
@@ -382,7 +418,17 @@ static void _handle_command(Edit *edit) {
 	edit_set_status(edit, "unknown command '%s'", cmd);
 }
 
-static void _fix_cursor_x(Edit *edit) {
+static void _update_gutter(Edit *edit) {
+	size_t line_count = edit->file.length;
+
+	edit->gutter = 1;
+	do {
+		++edit->gutter;
+		line_count /= 10;
+	} while( line_count != 0 );
+}
+
+static void _update_cursor_x(Edit *edit) {
 	const long s_length = edit_get_current_line_length(edit);
 	if( s_length == -1 ) {
 		return;
@@ -391,29 +437,34 @@ static void _fix_cursor_x(Edit *edit) {
 	const size_t length = (size_t)s_length;
 	if( edit->idx >= (size_t)length ) {
 		edit->idx = length;
-		edit->x = edit->idx;
-		move(edit->y, edit->x);
 	}
+
+	edit->x = edit->idx + edit->gutter;
+	move(edit->y, edit->x);
 }
 
 static void _newline(Edit *edit) {
 	file_break_line(&edit->file, edit->line++, edit->idx);
 	++edit->y;
 
-	edit->x = 0;
-	edit->idx = 0;
+	_update_gutter(edit);
 
-	file_render(&edit->file);
+	edit->idx = 0;
+	_update_cursor_x(edit);
+
+	file_render(&edit->file, edit->gutter);
 }
 
 static char *_get_mode_string(Edit *edit) {
 	switch( edit->mode ) {
 	case EDIT_MODE_NORMAL:
-		return "NORMAL";
+		return "NORMAL ";
 	case EDIT_MODE_INSERT:
-		return "INSERT";
+		return "INSERT ";
 	case EDIT_MODE_VISUAL:
-		return "VISUAL";
+		return "VISUAL ";
+	case EDIT_MODE_COMMAND:
+		return "COMMAND";
 	default:
 		fprintf(stderr, "Invalid mode no. %d!\n", edit->mode);
 		exit(1);

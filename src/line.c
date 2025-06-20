@@ -33,6 +33,7 @@ void line_new(Line *line) {
 /* Frees the line from memory */
 void line_free(Line *line) {
 	free(line->text);
+	line->text = NULL;
 	line->length = 0;
 	line->capacity = 0;
 }
@@ -108,8 +109,9 @@ char *line_copy(Line *line, size_t idx, long len, bool kill) {
 		u_len = (size_t)len;
 	}
 
-	char *buf = malloc(u_len);
+	char *buf = malloc(u_len + 1);
 	memcpy(buf, line->text + idx, u_len);
+	buf[u_len] = '\0';
 
 	if( kill ) {
 		line_shift_chars_backwards(line, idx + u_len, u_len);

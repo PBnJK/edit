@@ -107,16 +107,18 @@ bool file_load_from_fp(File *file, FILE *fp) {
 }
 
 /* Renders the file's contents */
-void file_render(File *file) {
+void file_render(File *file, int gutter) {
 	for( size_t y = 0; y < file->length; ++y ) {
 		move(y, 0);
+		printw("%-*zu", gutter, y + 1);
 		line_render(&file->lines[y]);
 	}
 }
 
 /* Renders a single line from the file */
-void file_render_line(File *file, size_t idx) {
+void file_render_line(File *file, size_t idx, int gutter) {
 	move(idx, 0);
+	printw("%-*zu", gutter, idx + 1);
 	line_render(&file->lines[idx]);
 }
 
@@ -194,6 +196,40 @@ void file_insert_line(File *file, size_t idx, Line *line) {
 	++file->length;
 }
 
+size_t file_move_line_up(File *file, size_t idx) {
+	if( idx == 0 ) {
+		return 0;
+	}
+
+	Line *prev = file_get_line(file, idx - 1);
+	const size_t prev_length = prev->length;
+
+	Line *line = file_get_line(file, idx);
+	char *text = line_get_c_str(line);
+
+	line_insert_str(prev, prev->length, text);
+	line_free(line);
+
+	file_shift_lines_up(file, idx + 1);
+
+	return prev_length;
+}
+
+/* Shifts lines starting at @idx one row up */
+void file_shift_lines_up(File *file, size_t idx) {
+	if( file->length == 0 ) {
+		return;
+	}
+
+	size_t i;
+	for( i = idx; i < file->length; ++i ) {
+		file->lines[i - 1] = file->lines[i];
+	}
+
+	line_clone(&file->lines[i], &file->lines[i - 1], true);
+	line_free(&file->lines[--file->length]);
+}
+
 /* Shifts lines starting at @idx one row down */
 void file_shift_lines_down(File *file, size_t idx) {
 	if( file->length == 0 ) {
@@ -237,12 +273,11 @@ long file_get_line_length(File *file, size_t idx) {
 #endif
 
 static char *DEFAULT_FILE[] = {
-	".-----.     .-.   .-.   .-.",
-	"|     |     | |   *-* .-* *-.",
-	"| .---*     | | .---. *-. .-*",
-	"|     | .---* | *-. |   | |",
-	"| .---* |     |   | |   | |",
-	"|     | |     | .-* *-. | .-.",
+	"            .-.   .-.   .-.",
+	"            | |   *-* .-* *-.",
+	".-----. .---* | .---. *-. .-*",
+	"| .-- | | .-. | *-. |   | |",
+	"| *---| | *-* | .-* *-. | .-.",
 	"*-----* *-----* *-----* .---*",
 	"",
 	"a file editor by pedrob",

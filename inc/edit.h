@@ -14,6 +14,7 @@ typedef enum _Mode {
 	EDIT_MODE_NORMAL,
 	EDIT_MODE_INSERT,
 	EDIT_MODE_VISUAL,
+	EDIT_MODE_COMMAND,
 } Mode;
 
 typedef struct _Edit {
@@ -24,6 +25,7 @@ typedef struct _Edit {
 	size_t x, y; /* Current cursor position (global to file) */
 
 	size_t w, h; /* Terminal dimensions */
+	size_t gutter; /* Gutter size */
 
 	char msg[STATUS_MSG_LEN]; /* Status message */
 	int msg_len; /* Cached status message length */
@@ -32,7 +34,6 @@ typedef struct _Edit {
 
 	Mode mode; /* Current editor mode */
 
-	bool is_typing_cmd; /* If the user is currently typing a command */
 	Line cmd; /* Normal mode command buffer */
 } Edit;
 
@@ -44,6 +45,7 @@ void edit_update(Edit *edit);
 void edit_mode_normal(Edit *edit, int ch);
 void edit_mode_insert(Edit *edit, int ch);
 void edit_mode_visual(Edit *edit, int ch);
+void edit_mode_command(Edit *edit, int ch);
 
 void edit_insert_char(Edit *edit, char c);
 void edit_delete_char(Edit *edit);
