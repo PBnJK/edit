@@ -209,13 +209,18 @@ size_t file_move_line_up(File *file, size_t idx) {
 	Line *prev = file_get_line(file, idx - 1);
 	const size_t prev_length = prev->length;
 
-	Line *line = file_get_line(file, idx);
-	char *text = line_get_c_str(line);
+	if( prev_length > 0 ) {
+		Line *line = file_get_line(file, idx);
+		char *text = line_get_c_str(line);
 
-	line_insert_str(prev, prev->length, text);
-	line_free(line);
+		line_insert_str(prev, prev->length, text);
+		line_free(line);
 
-	file_shift_lines_up(file, idx + 1);
+		file_shift_lines_up(file, idx + 1);
+	} else {
+		line_free(prev);
+		file_shift_lines_up(file, idx);
+	}
 
 	return prev_length;
 }
@@ -227,12 +232,12 @@ void file_shift_lines_up(File *file, size_t idx) {
 	}
 
 	size_t i;
-	for( i = idx; i <= file->length; ++i ) {
+	for( i = idx; i < file->length; ++i ) {
 		file->lines[i - 1] = file->lines[i];
 	}
 
-	line_clone(&file->lines[i], &file->lines[i - 1], true);
-	line_free(&file->lines[--file->length]);
+	/* The previous line has a pointer to text so this isn't a leak */
+	line_zero(&file->lines[--file->length]);
 }
 
 /* Shifts lines starting at @idx one row down */

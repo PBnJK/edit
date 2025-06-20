@@ -13,6 +13,7 @@ typedef struct _Line {
 void line_new(Line *line);
 void line_free(Line *line);
 
+void line_zero(Line *line);
 void line_erase(Line *line);
 
 void line_render(Line *line);

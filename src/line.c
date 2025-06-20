@@ -40,6 +40,13 @@ void line_free(Line *line) {
 	line->capacity = 0;
 }
 
+/* Zeroes out the line's contents */
+void line_zero(Line *line) {
+	line->text = NULL;
+	line->length = 0;
+	line->capacity = 0;
+}
+
 /* Erases a line's contents
  * Will resize its buffer
  */
