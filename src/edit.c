@@ -2,15 +2,16 @@
  * The "edit" editor
  */
 
-#include <stdlib.h>
+#include <stddef.h>
+#include <string.h>
 
 #include <ncurses.h>
-
-#include "global.h"
 
 #include "file.h"
 
 #include "edit.h"
+
+static void _fix_cursor_x(Edit *edit);
 
 static void _newline(Edit *edit);
 
@@ -20,20 +21,47 @@ void edit_new(Edit *edit, const char *filename) {
 	edit->x = 0;
 	edit->y = 0;
 
-	file_load(&edit->file, filename);
+	getmaxyx(stdscr, edit->h, edit->w);
+
+	memset(edit->msg, 0, STATUS_MSG_LEN);
+	edit->msg_len = 0;
+
+	file_new(&edit->file, filename);
 }
 
-void edit_update(Edit *edit) {
+void edit_free(Edit *edit) {
+	file_free(&edit->file);
+}
+
+/* Updates the editor
+ *
+ * TODO:
+ * - Vim-like "INSERT" and "NORMAL" modes, better keybind
+ * - Saving
+ */
+bool edit_update(Edit *edit) {
 	int ch = getch();
 
 	switch( ch ) {
-	case '\\': /* TODO: vim-like "INSERT" and "NORMAL" modes, better keybind */
-		exit(0); /* TODO: Exit gracefully */
+	case '\\':
+		edit_quit(edit);
+		return false;
+	case 'w':
 		break;
-	case CTRL('s'):
-		break; /* TODO: Save */
 	case '\n':
 		_newline(edit);
+		break;
+	case KEY_UP:
+		edit_move_up(edit);
+		break;
+	case KEY_DOWN:
+		edit_move_down(edit);
+		break;
+	case KEY_LEFT:
+		edit_move_left(edit);
+		break;
+	case KEY_RIGHT:
+		edit_move_right(edit);
 		break;
 	case KEY_BACKSPACE:
 		edit_delete_char(edit);
@@ -41,15 +69,9 @@ void edit_update(Edit *edit) {
 	default:
 		edit_insert_char(edit, ch);
 	}
-}
 
-void edit_render(Edit *edit) {
-	erase();
-	move(0, 0);
-
-	file_render(&edit->file);
-
-	move(edit->y, edit->x);
+	edit_update_status(edit);
+	return true;
 }
 
 void edit_insert_char(Edit *edit, char c) {
@@ -57,11 +79,7 @@ void edit_insert_char(Edit *edit, char c) {
 	++edit->idx;
 	++edit->x;
 
-	/* TODO:
-	 *   Obviously, it's insane to re-render the whole file on change
-	 *   Only re-render the currrent line (and others *AS NEEDED*)
-	 */
-	file_render(&edit->file);
+	edit_render_current_line(edit);
 }
 
 void edit_delete_char(Edit *edit) {
@@ -74,11 +92,142 @@ void edit_delete_char(Edit *edit) {
 	--edit->idx;
 	--edit->x;
 
-	/* TODO:
-	 *   Obviously, it's insane to re-render the whole file on change
-	 *   Only re-render the currrent line (and others *AS NEEDED*)
-	 */
+	edit_render_current_line(edit);
+}
+
+void edit_move_up(Edit *edit) {
+	if( edit->y <= 0 ) {
+		edit->y = 0;
+		return;
+	}
+
+	--edit->y;
+	--edit->line;
+	_fix_cursor_x(edit);
+
+	move(edit->y, edit->x);
+	refresh();
+}
+
+void edit_move_down(Edit *edit) {
+	const size_t lines = edit->file.length;
+	if( edit->y >= lines - 1 ) {
+		edit->y = lines - 1;
+		return;
+	}
+
+	++edit->y;
+	++edit->line;
+	_fix_cursor_x(edit);
+
+	refresh();
+}
+
+void edit_move_left(Edit *edit) {
+	if( edit->x <= 0 ) {
+		edit->x = 0;
+		return;
+	}
+
+	--edit->x;
+	--edit->idx;
+	_fix_cursor_x(edit);
+
+	refresh();
+}
+
+void edit_move_right(Edit *edit) {
+	if( edit->x >= edit->w - 1 ) {
+		edit->x = edit->w - 1;
+		return;
+	}
+
+	++edit->x;
+	++edit->idx;
+	_fix_cursor_x(edit);
+
+	refresh();
+}
+
+/* Sets the status message */
+void edit_set_status(Edit *edit, const char *msg) {
+	if( *msg ) {
+		memset(edit->msg, 0, STATUS_MSG_LEN);
+		edit->msg_len = 0;
+		return;
+	}
+
+	strncpy(edit->msg, msg, STATUS_MSG_LEN - 1);
+	edit->msg_len = strlen(msg);
+}
+
+void edit_update_status(Edit *edit) {
+	const size_t bottom = edit->h - 1;
+
+	move(bottom, 0);
+	clrtoeol();
+
+	printw("%zu %zu\n", edit->x, edit->y);
+
+	if( edit->msg_len ) {
+		move(bottom, edit->w - STATUS_MSG_LEN);
+		if( edit->msg_len > STATUS_MSG_LEN ) {
+			printw("%.37s...", edit->msg);
+		} else {
+			printw("%*s", edit->msg_len, edit->msg);
+		}
+	}
+
+	move(edit->y, edit->x);
+	refresh();
+}
+
+void edit_render(Edit *edit) {
 	file_render(&edit->file);
+
+	move(edit->y, edit->x);
+}
+
+void edit_render_current_line(Edit *edit) {
+	edit_render_line(edit, edit->line);
+}
+
+void edit_render_line(Edit *edit, size_t idx) {
+	file_render_line(&edit->file, idx);
+}
+
+void edit_quit(Edit *edit) {
+	edit_free(edit);
+}
+
+Line *edit_get_current_line(Edit *edit) {
+	return edit_get_line(edit, edit->line);
+}
+
+Line *edit_get_line(Edit *edit, size_t idx) {
+	return file_get_line(&edit->file, idx);
+}
+
+long edit_get_current_line_length(Edit *edit) {
+	return edit_get_line_length(edit, edit->line);
+}
+
+long edit_get_line_length(Edit *edit, size_t idx) {
+	return file_get_line_length(&edit->file, idx);
+}
+
+static void _fix_cursor_x(Edit *edit) {
+	const long s_length = edit_get_current_line_length(edit);
+	if( s_length == -1 ) {
+		return;
+	}
+
+	const size_t length = (size_t)s_length;
+	if( edit->idx >= (size_t)length ) {
+		edit->idx = length;
+		edit->x = edit->idx;
+		move(edit->y, edit->x);
+	}
 }
 
 static void _newline(Edit *edit) {
@@ -87,4 +236,6 @@ static void _newline(Edit *edit) {
 
 	edit->x = 0;
 	edit->idx = 0;
+
+	file_render(&edit->file);
 }

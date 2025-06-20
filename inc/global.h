@@ -1,6 +1,9 @@
 #ifndef GUARD_EDIT_GLOBAL_H_
 #define GUARD_EDIT_GLOBAL_H_
 
+#define MAX(A, B) (((A) > (B)) ? (A) : (B))
+#define MIN(A, B) (((A) < (B)) ? (A) : (B))
+
 /* Color pairs */
 #define COLP_RED (1)
 #define COLP_GREEN (2)

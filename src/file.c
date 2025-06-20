@@ -19,13 +19,35 @@ static void _grow_line_array_to(File *file, size_t new_capacity);
 
 static bool _is_line_array_full(File *file);
 
-bool file_load(File *file, const char *filename) {
-	strncpy(file->name, filename, MAX_FILE_NAME_SIZE - 1);
-
-	/* Initialize line array */
+/* Creates a new file */
+bool file_new(File *file, const char *filename) {
 	file->length = 0;
 	file->capacity = 4;
 	file->lines = malloc(sizeof(Line) * file->capacity);
+
+	return file_load(file, filename);
+}
+
+void file_free(File *file) {
+	memset(file->name, 0, MAX_FILE_NAME_SIZE);
+
+	for( size_t i = 0; i < file->length; ++i ) {
+		line_free(&file->lines[i]);
+	}
+
+	free(file->lines);
+	file->lines = NULL;
+
+	file->length = 0;
+	file->capacity = 0;
+}
+
+/* Tries to load a file
+ * If it exists, loads its contents
+ * Otherwise, "creates" a new empty file
+ */
+bool file_load(File *file, const char *filename) {
+	strncpy(file->name, filename, MAX_FILE_NAME_SIZE - 1);
 
 	FILE *fp = fopen(filename, "r");
 	if( fp ) {
@@ -84,6 +106,11 @@ void file_render(File *file) {
 	}
 }
 
+void file_render_line(File *file, size_t idx) {
+	move(idx, 0);
+	line_render(&file->lines[idx]);
+}
+
 void file_insert_char(File *file, size_t line, size_t idx, char c) {
 	line_insert_char(&file->lines[line], idx, c);
 }
@@ -115,12 +142,30 @@ void file_shift_lines_down(File *file, size_t idx) {
 		_grow_line_array(file);
 	}
 
-	size_t i;
-	for( i = file->length - 1; i >= idx && i != 0; --i ) {
+	long i;
+	long s_idx = (long)idx;
+	for( i = (long)file->length - 1; i >= s_idx; --i ) {
 		file->lines[i + 1] = file->lines[i];
 	}
 
-	line_erase(&file->lines[i]);
+	line_new(&file->lines[idx]);
+}
+
+Line *file_get_line(File *file, size_t idx) {
+	if( idx >= file->length - 1 ) {
+		return NULL;
+	}
+
+	return &file->lines[idx];
+}
+
+long file_get_line_length(File *file, size_t idx) {
+	Line *line = file_get_line(file, idx);
+	if( line ) {
+		return line->length;
+	}
+
+	return -1;
 }
 
 static void _grow_line_array(File *file) {

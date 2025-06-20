@@ -25,11 +25,12 @@ int main(int argc, char *argv[]) {
 	_init_ncurses();
 	edit_new(&edit, argv[1]);
 
-	while( 1 ) {
-		edit_update(&edit);
-	}
+	while( edit_update(&edit) )
+		;
 
 	edit_free(&edit);
+
+	endwin();
 
 	return EXIT_SUCCESS;
 }

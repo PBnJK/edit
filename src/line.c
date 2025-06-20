@@ -30,6 +30,12 @@ void line_new(Line *line) {
 	line->length = 0;
 }
 
+void line_free(Line *line) {
+	free(line->text);
+	line->length = 0;
+	line->capacity = 0;
+}
+
 void line_erase(Line *line) {
 	line->text = realloc(line->text, sizeof(*line->text) * 8);
 	if( !line->text ) {
@@ -45,9 +51,7 @@ void line_erase(Line *line) {
 
 void line_render(Line *line) {
 	clrtoeol();
-	for( size_t i = 0; i < line->length; ++i ) {
-		addch(line->text[i]);
-	}
+	addnstr(line->text, line->length);
 }
 
 void line_insert_char(Line *line, size_t idx, char c) {
@@ -88,7 +92,7 @@ void line_shift_chars_forwards(Line *line, size_t idx, size_t by) {
 		_grow_string_to(line, total);
 	}
 
-	for( size_t i = line->length; i > idx; --i ) {
+	for( size_t i = line->length; i >= idx; --i ) {
 		line->text[i + by] = line->text[i];
 		line->text[i] = ' ';
 	}

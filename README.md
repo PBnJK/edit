@@ -4,7 +4,8 @@ A simple text editor in C with ncurses
 
 ## Features
 
-- [ ] Editing
-- [ ] Loading
+- [x] Basic Editing
 - [ ] Saving
+- [ ] Loading
+- [ ] More refined editing
 - [ ] Copy & Paste (Kill & Yank)
