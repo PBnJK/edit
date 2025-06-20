@@ -24,7 +24,7 @@ bool file_load(File *file, const char *filename);
 bool file_load_from_fp(File *file, FILE *fp);
 bool file_save(File *file, const char *as);
 
-void file_render(File *file, int gutter);
+void file_render(File *file, size_t from, int gutter);
 void file_render_line(File *file, size_t idx, int gutter);
 
 void file_insert_char(File *file, size_t line, size_t idx, char c);

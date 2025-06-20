@@ -37,6 +37,9 @@ void edit_new(Edit *edit, const char *filename) {
 	edit->x = 0;
 	edit->y = 0;
 
+	edit->vx = 0;
+	edit->vy = 0;
+
 	getmaxyx(stdscr, edit->h, edit->w);
 
 	memset(edit->msg, 0, STATUS_MSG_LEN);
@@ -204,7 +207,7 @@ void edit_mode_command(Edit *edit, int ch) {
 void edit_insert_char(Edit *edit, char c) {
 	file_insert_char(&edit->file, edit->line, edit->idx, c);
 	++edit->idx;
-	++edit->x;
+	_update_cursor_x(edit);
 
 	edit_render_current_line(edit);
 }
@@ -216,28 +219,34 @@ void edit_delete_char(Edit *edit) {
 	 */
 	if( edit->idx == 0 ) {
 		edit->idx = file_move_line_up(&edit->file, edit->line);
-		_update_gutter(edit);
 		edit_move_up(edit);
 		edit_render(edit);
 		return;
 	}
 
 	file_delete_char(&edit->file, edit->line, edit->idx);
+
 	--edit->idx;
-	--edit->x;
+	_update_cursor_x(edit);
 
 	edit_render_current_line(edit);
 }
 
 /* If possible, moves the cursor up one row */
 void edit_move_up(Edit *edit) {
-	if( edit->y <= 0 ) {
-		edit->y = 0;
+	if( edit->line <= 0 ) {
+		edit->line = 0;
 		return;
 	}
 
-	--edit->y;
 	--edit->line;
+	if( edit->y == 0 ) {
+		edit->vy = edit->line - (edit->h - 4);
+		edit->y = edit->h - 3;
+		edit_render(edit);
+	}
+
+	--edit->y;
 	_update_cursor_x(edit);
 
 	move(edit->y, edit->x);
@@ -247,13 +256,18 @@ void edit_move_up(Edit *edit) {
 /* If possible, moves the cursor down one row */
 void edit_move_down(Edit *edit) {
 	const size_t lines = edit->file.length;
-	if( edit->y >= lines - 1 ) {
-		edit->y = lines - 1;
+	if( edit->line >= lines - 1 ) {
+		edit->line = lines - 1;
 		return;
 	}
 
-	++edit->y;
 	++edit->line;
+	if( ++edit->y >= edit->h - 3 ) {
+		edit->vy = edit->line;
+		edit->y = 0;
+		edit_render(edit);
+	}
+
 	_update_cursor_x(edit);
 
 	refresh();
@@ -261,12 +275,11 @@ void edit_move_down(Edit *edit) {
 
 /* If possible, moves the cursor left one column */
 void edit_move_left(Edit *edit) {
-	if( edit->x <= edit->gutter ) {
-		edit->x = edit->gutter;
+	if( edit->idx <= 0 ) {
+		edit->idx = 0;
 		return;
 	}
 
-	--edit->x;
 	--edit->idx;
 	_update_cursor_x(edit);
 
@@ -280,7 +293,6 @@ void edit_move_right(Edit *edit) {
 		return;
 	}
 
-	++edit->x;
 	++edit->idx;
 	_update_cursor_x(edit);
 
@@ -313,7 +325,7 @@ void edit_render_status(Edit *edit) {
 	move(bottom, 0);
 	clrtoeol();
 
-	printw("%s | %zu %zu\n", _get_mode_string(edit), edit->x, edit->y);
+	printw("%s | %zu %zu\n", _get_mode_string(edit), edit->idx, edit->line);
 
 	if( edit->msg_len ) {
 		move(bottom, edit->w - STATUS_MSG_LEN);
@@ -332,7 +344,7 @@ void edit_render_status(Edit *edit) {
 void edit_render(Edit *edit) {
 	erase();
 	_update_gutter(edit);
-	file_render(&edit->file, edit->gutter);
+	file_render(&edit->file, edit->vy, edit->gutter);
 
 	move(edit->y, edit->x);
 }
@@ -452,7 +464,7 @@ static void _newline(Edit *edit) {
 	edit->idx = 0;
 	_update_cursor_x(edit);
 
-	file_render(&edit->file, edit->gutter);
+	edit_render(edit);
 }
 
 static char *_get_mode_string(Edit *edit) {

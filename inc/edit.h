@@ -22,7 +22,8 @@ typedef struct _Edit {
 
 	size_t line; /* Current line */
 	size_t idx; /* Current character */
-	size_t x, y; /* Current cursor position (global to file) */
+	size_t x, y; /* Current cursor position in the terminal */
+	size_t vx, vy; /* "Viewport" */
 
 	size_t w, h; /* Terminal dimensions */
 	size_t gutter; /* Gutter size */

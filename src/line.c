@@ -90,10 +90,14 @@ void line_delete_char(Line *line, size_t idx) {
 	line_shift_chars_backwards(line, idx, 1);
 }
 
-void line_insert_str(Line *line, size_t idx, const char *str) {
+void line_insert_str(Line *line, size_t idx, char *str) {
 	size_t len = strlen(str);
-	line_shift_chars_forwards(line, idx, len);
+	if( len > 0 && str[len - 1] == '\n' ) {
+		--len;
+		str[len] = '\0';
+	}
 
+	line_shift_chars_forwards(line, idx, len);
 	memcpy(line->text + idx, str, len);
 }
 

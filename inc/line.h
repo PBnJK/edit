@@ -23,7 +23,7 @@ void line_delete_char_at_end(Line *line);
 void line_insert_char(Line *line, size_t idx, char c);
 void line_delete_char(Line *line, size_t idx);
 
-void line_insert_str(Line *line, size_t idx, const char *str);
+void line_insert_str(Line *line, size_t idx, char *str);
 void line_delete_str(Line *line, size_t idx, size_t len);
 
 char *line_copy(Line *line, size_t idx, long len, bool kill);

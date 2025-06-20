@@ -79,8 +79,10 @@ bool file_load_from_fp(File *file, FILE *fp) {
 	line_new(&line);
 
 	while( fgets(buf, BUFSIZ, fp) ) {
+		line_insert_str(&line, char_idx, buf);
+
 		if( feof(fp) ) {
-			line_insert_str(&line, char_idx, buf);
+			file_insert_line(file, line_idx++, &line);
 			break;
 		}
 
@@ -88,7 +90,6 @@ bool file_load_from_fp(File *file, FILE *fp) {
 		 * Otherwise, the entire buffer was filled, and there's more to read
 		 */
 		if( buf[BUFSIZ - 1] == 0x55 ) {
-			line_insert_str(&line, char_idx, buf);
 			char_idx = 0;
 
 			file_insert_line(file, line_idx++, &line);
@@ -107,11 +108,15 @@ bool file_load_from_fp(File *file, FILE *fp) {
 }
 
 /* Renders the file's contents */
-void file_render(File *file, int gutter) {
-	for( size_t y = 0; y < file->length; ++y ) {
+void file_render(File *file, size_t from, int gutter) {
+	const size_t maxy = getmaxy(stdscr) - 3;
+
+	for( size_t y = 0; y < maxy && y < file->length - from; ++y ) {
 		move(y, 0);
-		printw("%-*zu", gutter, y + 1);
-		line_render(&file->lines[y]);
+
+		size_t offset = y + from;
+		printw("%-*zu", gutter, offset + 1);
+		line_render(&file->lines[offset]);
 	}
 }
 
