@@ -19,9 +19,11 @@ static size_t _next_power_of_two(size_t n);
 
 /* Creates a new empty line */
 void line_new(Line *line) {
-	line->text = malloc(sizeof(*line->text) * 8);
+	size_t size = sizeof(*line->text) * 8;
+	line->text = malloc(size);
 	if( !line->text ) {
-		fprintf(stderr, "Failed to allocate text buffer!\n");
+		fprintf(
+			stderr, "Failed to allocate %zu bytes for text buffer!\n", size);
 		exit(1);
 	}
 
@@ -42,9 +44,10 @@ void line_free(Line *line) {
  * Will resize its buffer
  */
 void line_erase(Line *line) {
-	line->text = realloc(line->text, sizeof(*line->text) * 8);
+	size_t size = sizeof(*line->text) * 8;
+	line->text = realloc(line->text, size);
 	if( !line->text ) {
-		fprintf(stderr, "Failed to reallocate text buffer!\n");
+		fprintf(stderr, "Failed to reallocate %zu bytes text buffer!\n", size);
 		exit(1);
 	}
 
@@ -93,8 +96,7 @@ void line_delete_char(Line *line, size_t idx) {
 void line_insert_str(Line *line, size_t idx, char *str) {
 	size_t len = strlen(str);
 	if( len > 0 && str[len - 1] == '\n' ) {
-		--len;
-		str[len] = '\0';
+		str[--len] = '\0';
 	}
 
 	line_shift_chars_forwards(line, idx, len);
@@ -172,7 +174,9 @@ void line_clone(Line *from, Line *to, bool deep) {
 	} else {
 		to->text = malloc(to->capacity);
 		if( !to->text ) {
-			fprintf(stderr, "Failed to allocate buffer for line copy!\n");
+			fprintf(stderr,
+				"Failed to allocate %zu byte buffer for line clone!\n",
+				to->capacity);
 			exit(1);
 		}
 
@@ -203,9 +207,11 @@ static void _grow_string(Line *line) {
 }
 
 static void _grow_string_to(Line *line, size_t new_capacity) {
-	line->text = realloc(line->text, sizeof(*line->text) * new_capacity);
+	size_t size = sizeof(*line->text) * new_capacity;
+	line->text = realloc(line->text, size);
 	if( !line->text ) {
-		fprintf(stderr, "Failed to reallocate text buffer!\n");
+		fprintf(
+			stderr, "Failed to reallocate %zu bytes for text buffer!\n", size);
 		exit(1);
 	}
 

@@ -227,7 +227,7 @@ void file_shift_lines_up(File *file, size_t idx) {
 	}
 
 	size_t i;
-	for( i = idx; i < file->length; ++i ) {
+	for( i = idx; i <= file->length; ++i ) {
 		file->lines[i - 1] = file->lines[i];
 	}
 
@@ -305,7 +305,7 @@ static void _grow_line_array_to(File *file, size_t new_capacity) {
 	size_t size = sizeof(*file->lines) * new_capacity;
 	Line *new_lines = realloc(file->lines, size);
 	if( !new_lines ) {
-		fprintf(stderr, "Failed to reallocate file!\n");
+		fprintf(stderr, "Failed to reallocate %zu bytes for file!\n", size);
 		exit(1);
 	}
 
