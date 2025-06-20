@@ -2,6 +2,7 @@
  * Entry-point
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -9,18 +10,32 @@
 
 #include "global.h"
 
-static void _init(void);
+#include "edit.h"
+
+static void _init_ncurses(void);
 
 int main(int argc, char *argv[]) {
-	UNUSED(argc);
-	UNUSED(argv);
+	Edit edit;
 
-	_init();
+	if( argc < 2 ) {
+		fprintf(stderr, "MUST give a file name as input\n");
+		return EXIT_FAILURE;
+	}
+
+	_init_ncurses();
+	edit_new(&edit, argv[1]);
+
+	while( 1 ) {
+		edit_update(&edit);
+	}
+
+	edit_free(&edit);
+
 	return EXIT_SUCCESS;
 }
 
 /* Initializes ncurses */
-static void _init(void) {
+static void _init_ncurses(void) {
 	srand(time(NULL));
 
 	initscr();
@@ -32,12 +47,13 @@ static void _init(void) {
 	 * 4. Read keypad input
 	 */
 	cbreak();
-	raw();
+	// raw();
 	noecho();
 	keypad(stdscr, true);
 
-	curs_set(0);
+	curs_set(1);
 
+	/* Initializes color pairs */
 	start_color();
 	init_pair(COLP_RED, COLOR_RED, COLOR_BLACK);
 	init_pair(COLP_GREEN, COLOR_GREEN, COLOR_BLACK);

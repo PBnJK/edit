@@ -1,0 +1,40 @@
+#ifndef GUARD_EDIT_FILE_H_
+#define GUARD_EDIT_FILE_H_
+
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
+
+#include "line.h"
+
+#define MAX_FILE_NAME_SIZE (256)
+
+typedef struct _File {
+	char name[MAX_FILE_NAME_SIZE]; /* File name */
+
+	Line *lines; /* Lines in the file */
+	size_t length; /* Number of lines in the line array */
+	size_t capacity; /* Maximum capacity of the line array */
+} File;
+
+bool file_new(File *file, const char *filename);
+void file_free(File *file);
+
+bool file_load(File *file, const char *filename);
+bool file_load_from_fp(File *file, FILE *fp);
+bool file_save(File *file, const char *as);
+
+void file_render(File *file);
+
+void file_insert_char(File *file, size_t line, size_t idx, char c);
+void file_delete_char(File *file, size_t line, size_t idx);
+
+void file_insert_empty_line(File *file, size_t idx);
+
+void file_insert_line(File *file, size_t idx, Line *line);
+void file_delete_line(File *file, size_t idx, Line *line);
+
+void file_shift_lines_up(File *file, size_t idx);
+void file_shift_lines_down(File *file, size_t idx);
+
+#endif // !GUARD_EDIT_FILE_H_

@@ -10,6 +10,10 @@ add_executable(
 	edit
 
 	"src/main.c"
+
+	"src/edit.c"
+	"src/file.c"
+	"src/line.c"
 )
 
 target_compile_features(edit PRIVATE c_std_99)

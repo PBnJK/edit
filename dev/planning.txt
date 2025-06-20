@@ -1,1 +1,47 @@
+Basic structure:
 
+Editor is
+    file: File      Current file
+	line: Integer   Current line
+	char: Integer   Current character
+	x, y: Integer   Current position of the cursor (global to file)
+
+File is
+    name    Array of 256 chars   File name
+    lines      Array of Line   Lines in the file
+	size       Integer         Number of lines in the line array
+	capacity   Integer         Maximum capacity of the line array
+
+Line is
+	text       Array of char   Characters in the line
+	size       Integer         Number of characters in the string
+	capacity   Integer         Maximum capacity of the string
+
+---
+
+Adding character
+	1 edit_insert_char(char c)                        Calls
+	2 file_insert_char(int line, int index, char c)   Calls
+	3 line_insert_char(int index, char c)             Inserts character
+
+Removing character
+	1 edit_delete_char()                      Calls
+	2 file_delete_char(int line, int index)   Calls
+	3 line_delete_char(int index)             Inserts character
+
+Navigation
+	edit_move_up()      Moves the cursor up      k or up arrow
+	edit_move_down()    Moves the cursor down    j or down arrow
+	edit_move_left()    Moves the cursor left    h or left arrow
+	edit_move_right()   Moves the cursor right   l or right arrow
+
+Saving
+    1 edit_save_file()   Calls
+	2 file_save()        Saves the file
+
+Loading
+	1 edit_load_file(char *file)   Sets "file" to the result of
+	2 file_load(char *file)
+
+Quitting
+	edit_quit()   Quits the editor

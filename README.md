@@ -1,6 +1,6 @@
 # edit
 
-A simple file editor in C with ncurses
+A simple text editor in C with ncurses
 
 ## Features
 
