@@ -30,6 +30,8 @@ void file_render_line(File *file, size_t idx);
 void file_insert_char(File *file, size_t line, size_t idx, char c);
 void file_delete_char(File *file, size_t line, size_t idx);
 
+void file_insert_string(File *file, size_t idx, char *str);
+
 void file_break_line(File *file, size_t line, size_t idx);
 
 void file_insert_empty_line(File *file, size_t idx);

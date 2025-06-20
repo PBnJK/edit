@@ -15,18 +15,19 @@
 static void _init_ncurses(void);
 
 int main(int argc, char *argv[]) {
+	char *initial = NULL;
 	Edit edit;
 
-	if( argc < 2 ) {
-		fprintf(stderr, "MUST give a file name as input\n");
-		return EXIT_FAILURE;
+	if( argc > 1 ) {
+		initial = argv[1];
 	}
 
 	_init_ncurses();
-	edit_new(&edit, argv[1]);
+	edit_new(&edit, initial);
 
-	while( edit_update(&edit) )
-		;
+	while( edit.running ) {
+		edit_update(&edit);
+	}
 
 	edit_free(&edit);
 

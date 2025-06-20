@@ -25,10 +25,9 @@ void line_new(Line *line) {
 		exit(1);
 	}
 
-	memset(line->text, ' ', sizeof(*line->text));
-
 	line->capacity = 8;
 	line->length = 0;
+	memset(line->text, '\0', sizeof(*line->text) * line->capacity);
 }
 
 /* Frees the line from memory */
@@ -48,16 +47,23 @@ void line_erase(Line *line) {
 		exit(1);
 	}
 
-	memset(line->text, ' ', sizeof(*line->text));
-
 	line->capacity = 8;
 	line->length = 0;
+	memset(line->text, '\0', sizeof(*line->text) * line->capacity);
 }
 
 /* Renders the line's contents */
 void line_render(Line *line) {
 	clrtoeol();
 	addnstr(line->text, line->length);
+}
+
+void line_insert_char_at_end(Line *line, char c) {
+	line_insert_char(line, line->length, c);
+}
+
+void line_delete_char_at_end(Line *line) {
+	line_delete_char(line, line->length);
 }
 
 /* Inserts the character @c into column @idx */
@@ -77,7 +83,7 @@ void line_insert_char(Line *line, size_t idx, char c) {
 /* Deletes the character at column @idx */
 void line_delete_char(Line *line, size_t idx) {
 	if( idx == 0 ) {
-		exit(1); /* TODO: Panic more gracefully */
+		return;
 	}
 
 	line_shift_chars_backwards(line, idx, 1);
@@ -135,13 +141,14 @@ void line_shift_chars_forwards(Line *line, size_t idx, size_t by) {
  * Assumes that the text will not underrun the buffer
  */
 void line_shift_chars_backwards(Line *line, size_t idx, size_t by) {
-	for( size_t i = idx; i < line->length; ++i ) {
+	size_t i = idx;
+	do {
 		line->text[i - by] = line->text[i];
-		line->text[i] = ' ';
-	}
+		line->text[i] = '\0';
+	} while( ++i < line->length );
 
 	line->length -= by;
-	if( line->length > 0 ) {
+	if( by > 8 && line->length > 0 ) {
 		_grow_string_to(line, _next_power_of_two(line->length));
 	}
 }
@@ -165,6 +172,19 @@ void line_clone(Line *from, Line *to, bool deep) {
 
 		strncpy(to->text, from->text, to->capacity);
 	}
+}
+
+void line_null_terminate(Line *line) {
+	if( _is_string_full(line) ) {
+		_grow_string(line);
+	}
+
+	line->text[line->length + 1] = '\0';
+}
+
+char *line_get_c_str(Line *line) {
+	line_null_terminate(line);
+	return line->text;
 }
 
 static void _grow_string(Line *line) {

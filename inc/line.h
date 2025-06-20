@@ -17,6 +17,9 @@ void line_erase(Line *line);
 
 void line_render(Line *line);
 
+void line_insert_char_at_end(Line *line, char c);
+void line_delete_char_at_end(Line *line);
+
 void line_insert_char(Line *line, size_t idx, char c);
 void line_delete_char(Line *line, size_t idx);
 
@@ -29,5 +32,9 @@ void line_shift_chars_forwards(Line *line, size_t idx, size_t by);
 void line_shift_chars_backwards(Line *line, size_t idx, size_t by);
 
 void line_clone(Line *from, Line *to, bool deep);
+
+void line_null_terminate(Line *line);
+
+char *line_get_c_str(Line *line);
 
 #endif // !GUARD_EDIT_LINE_H_

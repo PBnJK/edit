@@ -14,6 +14,8 @@
 
 #include "file.h"
 
+static void _create_default_file(File *file);
+
 static void _grow_line_array(File *file);
 static void _grow_line_array_to(File *file, size_t new_capacity);
 
@@ -48,6 +50,11 @@ void file_free(File *file) {
  * Otherwise, "creates" a new empty file
  */
 bool file_load(File *file, const char *filename) {
+	if( filename == NULL ) {
+		_create_default_file(file);
+		return true;
+	}
+
 	strncpy(file->name, filename, MAX_FILE_NAME_SIZE - 1);
 
 	FILE *fp = fopen(filename, "r");
@@ -56,7 +63,6 @@ bool file_load(File *file, const char *filename) {
 	}
 
 	file_insert_empty_line(file, 0);
-
 	return true;
 }
 
@@ -124,6 +130,17 @@ void file_delete_char(File *file, size_t line, size_t idx) {
 	line_delete_char(&file->lines[line], idx);
 }
 
+/* Inserts a string
+ * Sames as creating a line and calling @file_insert_line with it
+ */
+void file_insert_string(File *file, size_t idx, char *str) {
+	Line line;
+	line_new(&line);
+
+	line_insert_str(&line, 0, str);
+	file_insert_line(file, idx, &line);
+}
+
 /* Inserts a line break into the file */
 void file_break_line(File *file, size_t line, size_t idx) {
 	Line new_line;
@@ -141,7 +158,7 @@ void file_break_line(File *file, size_t line, size_t idx) {
 		exit(1);
 	}
 
-	if( idx > curr_line->length - 1 ) {
+	if( idx > curr_line->length ) {
 		fprintf(stderr, "Cursor is beyond the line's limits!");
 		exit(1);
 	}
@@ -213,6 +230,19 @@ long file_get_line_length(File *file, size_t idx) {
 	}
 
 	return -1;
+}
+
+static void _create_default_file(File *file) {
+	file_insert_string(file, 0, ".-----.     .-.   .-.   .-.");
+	file_insert_string(file, 1, "|     |     | |   *-* .-* *-.");
+	file_insert_string(file, 2, "| .---*     | | .---. *-. .-*");
+	file_insert_string(file, 3, "|     | .---* | *-. |   | |");
+	file_insert_string(file, 4, "| .---* |     |   | |   | |");
+	file_insert_string(file, 5, "|     | |     | .-* *-. | .-.");
+	file_insert_string(file, 6, "*-----* *-----* *-----* .---*");
+	file_insert_empty_line(file, 7);
+	file_insert_string(file, 8, "A file editor by pedrob");
+	file_insert_string(file, 9, "2025.06.20");
 }
 
 static void _grow_line_array(File *file) {
