@@ -148,8 +148,8 @@ void line_shift_chars_backwards(Line *line, size_t idx, size_t by) {
 	} while( ++i < line->length );
 
 	line->length -= by;
-	if( by > 8 && line->length > 0 ) {
-		_grow_string_to(line, _next_power_of_two(line->length));
+	if( line->length < (line->capacity >> 2) ) {
+		_grow_string_to(line, line->capacity >> 2);
 	}
 }
 
@@ -174,6 +174,9 @@ void line_clone(Line *from, Line *to, bool deep) {
 	}
 }
 
+/* Adds a NUL character after the last character
+ * May cause a reallocation
+ */
 void line_null_terminate(Line *line) {
 	if( _is_string_full(line) ) {
 		_grow_string(line);
@@ -182,6 +185,7 @@ void line_null_terminate(Line *line) {
 	line->text[line->length + 1] = '\0';
 }
 
+/* Returns the line text, ensuring it is NUL-terminated */
 char *line_get_c_str(Line *line) {
 	line_null_terminate(line);
 	return line->text;

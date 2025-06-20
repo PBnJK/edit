@@ -8,7 +8,7 @@
 #include "file.h"
 #include "line.h"
 
-#define STATUS_MSG_LEN (40)
+#define STATUS_MSG_LEN (60)
 
 typedef enum _Mode {
 	EDIT_MODE_NORMAL,
@@ -53,7 +53,7 @@ void edit_move_down(Edit *edit);
 void edit_move_left(Edit *edit);
 void edit_move_right(Edit *edit);
 
-void edit_set_status(Edit *edit, const char *msg);
+void edit_set_status(Edit *edit, const char *fmt, ...);
 void edit_render_status(Edit *edit);
 
 Line *edit_get_current_line(Edit *edit);

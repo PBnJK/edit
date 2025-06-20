@@ -2,6 +2,7 @@
  * The "edit" editor
  */
 
+#include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,6 +18,7 @@
 #include "edit.h"
 
 static void _handle_command_typing(Edit *edit, int ch);
+static void _exit_command_typing(Edit *edit);
 static void _render_command(Edit *edit);
 static void _clear_command(Edit *edit);
 static void _handle_command(Edit *edit);
@@ -87,6 +89,7 @@ void edit_mode_normal(Edit *edit, int ch) {
 	switch( ch ) {
 	case ':':
 		edit->is_typing_cmd = true;
+		_render_command(edit);
 		break;
 	case 'i':
 		edit->mode = EDIT_MODE_INSERT;
@@ -226,15 +229,20 @@ void edit_move_right(Edit *edit) {
 }
 
 /* Sets the status message */
-void edit_set_status(Edit *edit, const char *msg) {
-	if( *msg == '\0' ) {
+void edit_set_status(Edit *edit, const char *fmt, ...) {
+	if( *fmt == '\0' ) {
 		memset(edit->msg, 0, STATUS_MSG_LEN);
 		edit->msg_len = 0;
 		return;
 	}
 
-	strncpy(edit->msg, msg, STATUS_MSG_LEN - 1);
-	edit->msg_len = strlen(msg);
+	va_list args;
+	va_start(args, fmt);
+
+	int len = vsnprintf(edit->msg, STATUS_MSG_LEN, fmt, args);
+	edit->msg_len = MIN(len, STATUS_MSG_LEN);
+
+	va_end(args);
 
 	edit_render_status(edit);
 }
@@ -250,8 +258,8 @@ void edit_render_status(Edit *edit) {
 
 	if( edit->msg_len ) {
 		move(bottom, edit->w - STATUS_MSG_LEN);
-		if( edit->msg_len > STATUS_MSG_LEN ) {
-			printw("%.37s...", edit->msg);
+		if( edit->msg_len == STATUS_MSG_LEN ) {
+			printw("%.*s...", edit->msg_len - 3, edit->msg);
 		} else {
 			printw("%*s", edit->msg_len, edit->msg);
 		}
@@ -308,16 +316,19 @@ static void _handle_command_typing(Edit *edit, int ch) {
 	/* Run command */
 	if( ch == '\n' ) {
 		_handle_command(edit);
-		line_erase(&edit->cmd);
-		_clear_command(edit);
-		edit->is_typing_cmd = false;
+		_exit_command_typing(edit);
 		return;
 	}
 
 	/* Erase character */
 	if( ch == KEY_BACKSPACE ) {
 		line_delete_char_at_end(&edit->cmd);
-		_render_command(edit);
+		if( edit->cmd.length == 0 ) {
+			_exit_command_typing(edit);
+		} else {
+			_render_command(edit);
+		}
+
 		return;
 	}
 
@@ -331,13 +342,19 @@ static void _handle_command_typing(Edit *edit, int ch) {
 	_render_command(edit);
 }
 
+static void _exit_command_typing(Edit *edit) {
+	line_erase(&edit->cmd);
+	_clear_command(edit);
+	edit->is_typing_cmd = false;
+}
+
 static void _render_command(Edit *edit) {
 	const size_t y = edit->h - 2;
 
 	move(y, 0);
 	clrtoeol();
 
-	printw("> %.*s ", (int)edit->cmd.length, edit->cmd.text);
+	printw("cmd> %.*s ", (int)edit->cmd.length, edit->cmd.text);
 
 	move(edit->y, edit->x);
 	refresh();
@@ -357,12 +374,12 @@ static void _handle_command(Edit *edit) {
 	char *cmd = line_get_c_str(&edit->cmd);
 	const int len = strlen(cmd);
 
-	edit_set_status(edit, edit->cmd.text);
-
 	if( strncmp(cmd, "q", len) == 0 ) {
 		edit_quit(edit);
 		return;
 	}
+
+	edit_set_status(edit, "unknown command '%s'", cmd);
 }
 
 static void _fix_cursor_x(Edit *edit) {

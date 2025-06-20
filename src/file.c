@@ -232,17 +232,28 @@ long file_get_line_length(File *file, size_t idx) {
 	return -1;
 }
 
+#ifndef __DATE__
+#define __DATE__ "made with love <3"
+#endif
+
+static char *DEFAULT_FILE[] = {
+	".-----.     .-.   .-.   .-.",
+	"|     |     | |   *-* .-* *-.",
+	"| .---*     | | .---. *-. .-*",
+	"|     | .---* | *-. |   | |",
+	"| .---* |     |   | |   | |",
+	"|     | |     | .-* *-. | .-.",
+	"*-----* *-----* *-----* .---*",
+	"",
+	"a file editor by pedrob",
+	__DATE__,
+};
+
 static void _create_default_file(File *file) {
-	file_insert_string(file, 0, ".-----.     .-.   .-.   .-.");
-	file_insert_string(file, 1, "|     |     | |   *-* .-* *-.");
-	file_insert_string(file, 2, "| .---*     | | .---. *-. .-*");
-	file_insert_string(file, 3, "|     | .---* | *-. |   | |");
-	file_insert_string(file, 4, "| .---* |     |   | |   | |");
-	file_insert_string(file, 5, "|     | |     | .-* *-. | .-.");
-	file_insert_string(file, 6, "*-----* *-----* *-----* .---*");
-	file_insert_empty_line(file, 7);
-	file_insert_string(file, 8, "A file editor by pedrob");
-	file_insert_string(file, 9, "2025.06.20");
+	const size_t LEN = (sizeof(DEFAULT_FILE) / sizeof(*DEFAULT_FILE));
+	for( size_t i = 0; i < LEN; ++i ) {
+		file_insert_string(file, i, DEFAULT_FILE[i]);
+	}
 }
 
 static void _grow_line_array(File *file) {
