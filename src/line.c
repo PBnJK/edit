@@ -18,13 +18,25 @@ static bool _is_string_full(Line *line);
 static size_t _next_power_of_two(size_t n);
 
 void line_new(Line *line) {
-	line->text = NULL;
-	line->capacity = 0;
+	line->text = malloc(sizeof(*line->text) * 8);
+	if( !line->text ) {
+		fprintf(stderr, "Failed to allocate text buffer!\n");
+		exit(1);
+	}
+
+	memset(line->text, ' ', sizeof(*line->text));
+
+	line->capacity = 8;
 	line->length = 0;
 }
 
 void line_erase(Line *line) {
 	line->text = realloc(line->text, sizeof(*line->text) * 8);
+	if( !line->text ) {
+		fprintf(stderr, "Failed to reallocate text buffer!\n");
+		exit(1);
+	}
+
 	memset(line->text, ' ', sizeof(*line->text));
 
 	line->capacity = 8;
@@ -39,8 +51,13 @@ void line_render(Line *line) {
 }
 
 void line_insert_char(Line *line, size_t idx, char c) {
-	if( idx != line->length - 1 ) {
+	if( idx < line->length ) {
 		line_shift_chars_forwards(line, idx, 1);
+	} else if( _is_string_full(line) ) {
+		_grow_string(line);
+		++line->length;
+	} else {
+		++line->length;
 	}
 
 	line->text[idx] = c;
@@ -48,8 +65,7 @@ void line_insert_char(Line *line, size_t idx, char c) {
 
 void line_delete_char(Line *line, size_t idx) {
 	if( idx == 0 ) {
-		/* TODO: Panic? */
-		return;
+		exit(1); /* TODO: Panic more gracefully */
 	}
 
 	line_shift_chars_backwards(line, idx, 1);
@@ -62,7 +78,7 @@ void line_insert_str(Line *line, size_t idx, const char *str) {
 	memcpy(line->text + idx, str, len);
 }
 
-/* Moves characters forwards by a give amount @by
+/* Moves characters forwards by a given amount @by
  * Grows the lines array as needed
  */
 void line_shift_chars_forwards(Line *line, size_t idx, size_t by) {
@@ -100,22 +116,32 @@ void line_copy(Line *from, Line *to, bool deep) {
 		to->text = from->text;
 	} else {
 		to->text = malloc(to->capacity);
+		if( !to->text ) {
+			fprintf(stderr, "Failed to allocate buffer for line copy!\n");
+			exit(1);
+		}
+
 		strncpy(to->text, from->text, to->capacity);
 	}
 }
 
 static void _grow_string(Line *line) {
-	const size_t new_capacity = (line->capacity == 0 ? 8 : line->capacity * 2);
+	const size_t new_capacity = (line->capacity < 8 ? 8 : line->capacity * 2);
 	_grow_string_to(line, new_capacity);
 }
 
 static void _grow_string_to(Line *line, size_t new_capacity) {
 	line->text = realloc(line->text, sizeof(*line->text) * new_capacity);
+	if( !line->text ) {
+		fprintf(stderr, "Failed to reallocate text buffer!\n");
+		exit(1);
+	}
+
 	line->capacity = new_capacity;
 }
 
 static bool _is_string_full(Line *line) {
-	return line->length >= line->capacity;
+	return line->length >= line->capacity - 1;
 }
 
 /* https://stackoverflow.com/a/12506181 */

@@ -23,9 +23,9 @@ bool file_load(File *file, const char *filename) {
 	strncpy(file->name, filename, MAX_FILE_NAME_SIZE - 1);
 
 	/* Initialize line array */
-	file->capacity = 0;
 	file->length = 0;
-	_grow_line_array(file);
+	file->capacity = 4;
+	file->lines = malloc(sizeof(Line) * file->capacity);
 
 	FILE *fp = fopen(filename, "r");
 	if( fp ) {
@@ -65,6 +65,7 @@ bool file_load_from_fp(File *file, FILE *fp) {
 			file_insert_line(file, line_idx++, &line);
 			line_new(&line);
 		} else {
+			buf[BUFSIZ - 1] = 0x55;
 			char_idx += BUFSIZ - 1;
 		}
 	}
@@ -78,8 +79,8 @@ bool file_load_from_fp(File *file, FILE *fp) {
 
 void file_render(File *file) {
 	for( size_t y = 0; y < file->length; ++y ) {
-		line_render(&file->lines[y]);
 		move(y, 0);
+		line_render(&file->lines[y]);
 	}
 }
 
@@ -106,30 +107,36 @@ void file_insert_line(File *file, size_t idx, Line *line) {
 }
 
 void file_shift_lines_down(File *file, size_t idx) {
-	size_t i;
+	if( file->length == 0 ) {
+		return;
+	}
 
 	if( _is_line_array_full(file) ) {
 		_grow_line_array(file);
 	}
 
-	for( i = file->length; i >= idx; --i ) {
+	size_t i;
+	for( i = file->length - 1; i >= idx && i != 0; --i ) {
 		file->lines[i + 1] = file->lines[i];
-
-		if( i == 0 ) {
-			break;
-		}
 	}
 
 	line_erase(&file->lines[i]);
 }
 
 static void _grow_line_array(File *file) {
-	const size_t new_capacity = (file->capacity == 0 ? 4 : file->capacity * 2);
+	const size_t new_capacity = (file->capacity < 4 ? 4 : file->capacity * 2);
 	_grow_line_array_to(file, new_capacity);
 }
 
 static void _grow_line_array_to(File *file, size_t new_capacity) {
-	file->lines = realloc(file->lines, sizeof(*file->lines) * new_capacity);
+	size_t size = sizeof(*file->lines) * new_capacity;
+	Line *new_lines = realloc(file->lines, size);
+	if( !new_lines ) {
+		fprintf(stderr, "Failed to reallocate file!\n");
+		exit(1);
+	}
+
+	file->lines = new_lines;
 	file->capacity = new_capacity;
 }
 

@@ -27,11 +27,11 @@ void edit_update(Edit *edit) {
 	int ch = getch();
 
 	switch( ch ) {
-	case CTRL('q'):
+	case '\\': /* TODO: vim-like "INSERT" and "NORMAL" modes, better keybind */
 		exit(0); /* TODO: Exit gracefully */
 		break;
 	case CTRL('s'):
-		break; /* TODO: Save*/
+		break; /* TODO: Save */
 	case '\n':
 		_newline(edit);
 		break;
