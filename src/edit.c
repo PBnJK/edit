@@ -25,6 +25,10 @@ static void _handle_command(Edit *edit);
 static void _update_gutter(Edit *edit);
 static void _update_cursor_x(Edit *edit);
 
+static void _move_to_start_of_line(Edit *edit);
+static void _move_to_end_of_line(Edit *edit);
+static void _move_to_end_of_file(Edit *edit);
+
 static void _newline(Edit *edit);
 
 static char *_get_mode_string(Edit *edit);
@@ -97,6 +101,24 @@ void edit_mode_normal(Edit *edit, int ch) {
 		_render_command(edit);
 		break;
 	case 'i':
+		edit->mode = EDIT_MODE_INSERT;
+		break;
+	case '^':
+		_move_to_start_of_line(edit);
+		break;
+	case '$':
+		_move_to_end_of_line(edit);
+		break;
+	case 'G':
+		_move_to_end_of_file(edit);
+		break;
+	case 'o':
+		_move_to_end_of_line(edit);
+		_newline(edit);
+		edit->mode = EDIT_MODE_INSERT;
+		break;
+	case 'a':
+		edit_move_right(edit);
 		edit->mode = EDIT_MODE_INSERT;
 		break;
 	case 'v':
@@ -219,6 +241,7 @@ void edit_delete_char(Edit *edit) {
 	 */
 	if( edit->idx == 0 ) {
 		edit->idx = file_move_line_up(&edit->file, edit->line);
+		_update_gutter(edit);
 		edit_move_up(edit);
 		edit_render(edit);
 		return;
@@ -249,7 +272,6 @@ void edit_move_up(Edit *edit) {
 	--edit->y;
 	_update_cursor_x(edit);
 
-	move(edit->y, edit->x);
 	refresh();
 }
 
@@ -325,7 +347,9 @@ void edit_render_status(Edit *edit) {
 	move(bottom, 0);
 	clrtoeol();
 
-	printw("%s | %zu %zu\n", _get_mode_string(edit), edit->idx, edit->line);
+	printw("%s > ", _get_mode_string(edit));
+	printw("%zu %zu > ", edit->idx + 1, edit->line + 1);
+	printw("%s", edit->file.name);
 
 	if( edit->msg_len ) {
 		move(bottom, edit->w - STATUS_MSG_LEN);
@@ -364,6 +388,11 @@ void edit_render_line(Edit *edit, size_t idx) {
 void edit_quit(Edit *edit) {
 	edit_free(edit);
 	edit->running = false;
+}
+
+/* Saves the current file */
+void edit_save(Edit *edit) {
+	file_save(&edit->file, NULL);
 }
 
 /* Returns the line under the cursor */
@@ -414,6 +443,8 @@ static void _clear_command(Edit *edit) {
 	refresh();
 }
 
+#define MATCH_CMD(C) if( strncmp(cmd, (C), len) == 0 )
+
 static void _handle_command(Edit *edit) {
 	char *cmd = line_get_c_str(&edit->cmd);
 	const int len = strlen(cmd);
@@ -422,7 +453,18 @@ static void _handle_command(Edit *edit) {
 		return;
 	}
 
-	if( strncmp(cmd, "q", len) == 0 ) {
+	MATCH_CMD("w") {
+		edit_save(edit);
+		return;
+	}
+
+	MATCH_CMD("q") {
+		edit_quit(edit);
+		return;
+	}
+
+	MATCH_CMD("wq") {
+		edit_save(edit);
 		edit_quit(edit);
 		return;
 	}
@@ -453,6 +495,22 @@ static void _update_cursor_x(Edit *edit) {
 
 	edit->x = edit->idx + edit->gutter;
 	move(edit->y, edit->x);
+}
+
+static void _move_to_start_of_line(Edit *edit) {
+	edit->idx = 0;
+	_update_cursor_x(edit);
+}
+
+static void _move_to_end_of_line(Edit *edit) {
+	Line *line = edit_get_current_line(edit);
+	edit->idx = line->length;
+	_update_cursor_x(edit);
+}
+
+static void _move_to_end_of_file(Edit *edit) {
+	edit->line = edit->file.length - 1;
+	_move_to_start_of_line(edit);
 }
 
 static void _newline(Edit *edit) {

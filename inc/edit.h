@@ -41,6 +41,8 @@ typedef struct _Edit {
 void edit_new(Edit *edit, const char *filename);
 void edit_free(Edit *edit);
 
+void edit_save(Edit *edit);
+
 void edit_update(Edit *edit);
 
 void edit_mode_normal(Edit *edit, int ch);
@@ -59,16 +61,18 @@ void edit_move_right(Edit *edit);
 void edit_set_status(Edit *edit, const char *fmt, ...);
 void edit_render_status(Edit *edit);
 
-Line *edit_get_current_line(Edit *edit);
-Line *edit_get_line(Edit *edit, size_t idx);
-
-long edit_get_current_line_length(Edit *edit);
-long edit_get_line_length(Edit *edit, size_t idx);
-
 void edit_render(Edit *edit);
 void edit_render_current_line(Edit *edit);
 void edit_render_line(Edit *edit, size_t idx);
 
 void edit_quit(Edit *edit);
+
+void edit_save_file(Edit *edit);
+
+Line *edit_get_current_line(Edit *edit);
+Line *edit_get_line(Edit *edit, size_t idx);
+
+long edit_get_current_line_length(Edit *edit);
+long edit_get_line_length(Edit *edit, size_t idx);
 
 #endif // !GUARD_EDIT_EDIT_H_

@@ -51,6 +51,7 @@ void file_free(File *file) {
  */
 bool file_load(File *file, const char *filename) {
 	if( filename == NULL ) {
+		memset(file->name, 0, MAX_FILE_NAME_SIZE);
 		_create_default_file(file);
 		return true;
 	}
@@ -59,7 +60,9 @@ bool file_load(File *file, const char *filename) {
 
 	FILE *fp = fopen(filename, "r");
 	if( fp ) {
-		return file_load_from_fp(file, fp);
+		bool ok = file_load_from_fp(file, fp);
+		fclose(fp);
+		return ok;
 	}
 
 	file_insert_empty_line(file, 0);
@@ -103,6 +106,23 @@ bool file_load_from_fp(File *file, FILE *fp) {
 	if( !feof(fp) ) {
 		return false;
 	}
+
+	return true;
+}
+
+bool file_save(File *file, const char *as) {
+	if( as ) {
+		strncpy(file->name, as, MAX_FILE_NAME_SIZE);
+	}
+
+	FILE *fp = fopen(file->name, "w");
+	for( size_t i = 0; i < file->length; ++i ) {
+		Line *line = file_get_line(file, i);
+		fwrite(line->text, sizeof(*line->text), line->length, fp);
+		fputc('\n', fp);
+	}
+
+	fclose(fp);
 
 	return true;
 }
