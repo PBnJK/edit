@@ -47,7 +47,7 @@ install it on your own...
 This project was created for the [Summer of Making](https://summer.hackclub.com)
 event. Here's to that Framework laptop!
 
-The [ncurses](invisible-mirror.net/archives/ncurses/) library is licensed under
+The [ncurses](https://invisible-island.net/ncurses/) library is licensed under
 the MIT license.
 
 This project is licensed under the MIT license. You may use it for whatever,

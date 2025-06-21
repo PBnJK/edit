@@ -20,7 +20,12 @@
 static void _exit_command_typing(Edit *edit);
 static void _render_command(Edit *edit);
 static void _clear_command(Edit *edit);
+
 static void _handle_command(Edit *edit);
+static void _handle_shell_command(Edit *edit, const char *cmd);
+
+static void _handle_complex_command(Edit *edit, const char *cmd);
+static char *_match_command(const char *cmd, const char *match, int len);
 
 static void _update_gutter(Edit *edit);
 static void _update_cursor_x(Edit *edit);
@@ -55,10 +60,13 @@ void edit_new(Edit *edit, const char *filename) {
 
 	line_new(&edit->cmd);
 
+	edit->vis_start_idx = 0;
+	edit->vis_start_line = 0;
+	edit->vis_length = 0;
+
 	file_new(&edit->file, filename);
 	_update_gutter(edit);
-
-	edit->x = edit->gutter;
+	_update_cursor_x(edit);
 
 	edit_render(edit);
 	edit_render_status(edit);
@@ -67,6 +75,25 @@ void edit_new(Edit *edit, const char *filename) {
 /* Frees the editor from memory */
 void edit_free(Edit *edit) {
 	file_free(&edit->file);
+}
+
+/* Loads the given file
+ * TODO: "Are you sure?" prompt if editing an unsaved file
+ */
+void edit_load(Edit *edit, const char *filename) {
+	file_free(&edit->file);
+
+	file_new(&edit->file, filename);
+	_update_gutter(edit);
+	_update_cursor_x(edit);
+
+	edit_render(edit);
+	edit_render_status(edit);
+}
+
+/* Saves the current file */
+void edit_save(Edit *edit) {
+	file_save(&edit->file, NULL);
 }
 
 /* Updates the editor */
@@ -89,6 +116,23 @@ void edit_update(Edit *edit) {
 	edit_render_status(edit);
 }
 
+void edit_change_to_normal(Edit *edit) {
+	edit->mode = EDIT_MODE_NORMAL;
+}
+
+void edit_change_to_insert(Edit *edit) {
+	edit->mode = EDIT_MODE_INSERT;
+}
+
+void edit_change_to_visual(Edit *edit) {
+	edit->mode = EDIT_MODE_VISUAL;
+}
+
+void edit_change_to_command(Edit *edit) {
+	edit->mode = EDIT_MODE_COMMAND;
+	_render_command(edit);
+}
+
 /* Handles the NORMAL mode
  *
  * In this mode, you cannot type characters directly, but can instead use
@@ -96,53 +140,49 @@ void edit_update(Edit *edit) {
  */
 void edit_mode_normal(Edit *edit, int ch) {
 	switch( ch ) {
-	case ':':
-		edit->mode = EDIT_MODE_COMMAND;
-		_render_command(edit);
+	case ':': /* Enter COMMAND mode */
+		edit_change_to_command(edit);
 		break;
-	case 'i':
-		edit->mode = EDIT_MODE_INSERT;
+	case 'i': /* Enter INSERT mode */
+		edit_change_to_insert(edit);
 		break;
-	case '^':
+	case '^': /* Move to the start of the line */
 		_move_to_start_of_line(edit);
 		break;
-	case '$':
+	case '$': /* Move to the end of the line */
 		_move_to_end_of_line(edit);
 		break;
-	case 'G':
+	case 'G': /* Move to the end of the file */
 		_move_to_end_of_file(edit);
 		break;
-	case 'o':
+	case 'o': /* Enter INSERT mode on a new line */
 		_move_to_end_of_line(edit);
 		_newline(edit);
-		edit->mode = EDIT_MODE_INSERT;
+		edit_change_to_insert(edit);
 		break;
-	case 'a':
+	case 'a': /* Enter INSERT mode after the current character */
 		edit_move_right(edit);
-		edit->mode = EDIT_MODE_INSERT;
+		edit_change_to_insert(edit);
 		break;
-	case 'v':
-		edit->mode = EDIT_MODE_VISUAL;
+	case 'v': /* Enter VISUAL mode */
+		edit_change_to_visual(edit);
 		break;
 	case 'h':
 	case KEY_LEFT:
-	case KEY_BACKSPACE:
+	case KEY_BACKSPACE: /* Move left */
 		edit_move_left(edit);
 		break;
 	case 'j':
-	case KEY_DOWN:
+	case KEY_DOWN: /* Move down */
 		edit_move_down(edit);
 		break;
 	case 'k':
-	case KEY_UP:
+	case KEY_UP: /* Move up */
 		edit_move_up(edit);
 		break;
 	case 'l':
-	case KEY_RIGHT:
+	case KEY_RIGHT: /* Move right */
 		edit_move_right(edit);
-		break;
-	case 'q':
-		edit_quit(edit);
 		break;
 	}
 }
@@ -155,28 +195,34 @@ void edit_mode_normal(Edit *edit, int ch) {
 void edit_mode_insert(Edit *edit, int ch) {
 	switch( ch ) {
 	case CTRL('['):
-	case CTRL('n'):
-		edit->mode = EDIT_MODE_NORMAL;
+	case CTRL('n'): /* Enter NORMAL mode */
+		edit_change_to_normal(edit);
 		break;
-	case '\n':
+	case '\n': /* Break line */
 		_newline(edit);
 		break;
-	case KEY_UP:
+	case '\t': /* TODO: Handle TAB properly! */
+		edit_insert_char(edit, ' ');
+		edit_insert_char(edit, ' ');
+		edit_insert_char(edit, ' ');
+		edit_insert_char(edit, ' ');
+		break;
+	case KEY_UP: /* Move up */
 		edit_move_up(edit);
 		break;
-	case KEY_DOWN:
+	case KEY_DOWN: /* Move down */
 		edit_move_down(edit);
 		break;
-	case KEY_LEFT:
+	case KEY_LEFT: /* Move left */
 		edit_move_left(edit);
 		break;
-	case KEY_RIGHT:
+	case KEY_RIGHT: /* Move right */
 		edit_move_right(edit);
 		break;
-	case KEY_BACKSPACE:
+	case KEY_BACKSPACE: /* Erase character */
 		edit_delete_char(edit);
 		break;
-	default:
+	default: /* Type character */
 		edit_insert_char(edit, ch);
 	}
 }
@@ -188,8 +234,8 @@ void edit_mode_insert(Edit *edit, int ch) {
 void edit_mode_visual(Edit *edit, int ch) {
 	switch( ch ) {
 	case CTRL('['):
-	case CTRL('n'):
-		edit->mode = EDIT_MODE_NORMAL;
+	case CTRL('n'): /* Enter NORMAL mode */
+		edit_change_to_normal(edit);
 		break;
 	}
 }
@@ -200,29 +246,25 @@ void edit_mode_visual(Edit *edit, int ch) {
  * meta actions like saving, loading, etc.
  */
 void edit_mode_command(Edit *edit, int ch) {
-	/* Run command */
-	if( ch == '\n' ) {
+	switch( ch ) {
+	case CTRL('['):
+	case CTRL('n'): /* Enter NORMAL mode */
+		edit_change_to_normal(edit);
+		break;
+	case '\n': /* Run command */
 		_handle_command(edit);
 		_exit_command_typing(edit);
-		return;
-	}
-
-	/* Erase character */
-	if( ch == KEY_BACKSPACE ) {
+		break;
+	case KEY_BACKSPACE: /* Erase character */
 		line_delete_char_at_end(&edit->cmd);
 		_render_command(edit);
-
-		return;
+		break;
+	default: /* Type (printable) characters */
+		if( ch >= 32 && ch <= 126 ) {
+			line_insert_char_at_end(&edit->cmd, ch);
+			_render_command(edit);
+		}
 	}
-
-	/* Ignore unprintable characters */
-	if( ch < 32 || ch > 126 ) {
-		return;
-	}
-
-	/* Append character */
-	line_insert_char_at_end(&edit->cmd, ch);
-	_render_command(edit);
 }
 
 /* Inserts a character under the cursor */
@@ -390,11 +432,6 @@ void edit_quit(Edit *edit) {
 	edit->running = false;
 }
 
-/* Saves the current file */
-void edit_save(Edit *edit) {
-	file_save(&edit->file, NULL);
-}
-
 /* Returns the line under the cursor */
 Line *edit_get_current_line(Edit *edit) {
 	return edit_get_line(edit, edit->line);
@@ -443,7 +480,7 @@ static void _clear_command(Edit *edit) {
 	refresh();
 }
 
-#define MATCH_CMD(C) if( strncmp(cmd, (C), len) == 0 )
+#define MATCH_SIMPLE_CMD(C) if( strncmp(cmd, (C), len) == 0 )
 
 static void _handle_command(Edit *edit) {
 	char *cmd = line_get_c_str(&edit->cmd);
@@ -453,23 +490,60 @@ static void _handle_command(Edit *edit) {
 		return;
 	}
 
-	MATCH_CMD("w") {
+	MATCH_SIMPLE_CMD("w") {
 		edit_save(edit);
 		return;
 	}
 
-	MATCH_CMD("q") {
+	MATCH_SIMPLE_CMD("q") {
 		edit_quit(edit);
 		return;
 	}
 
-	MATCH_CMD("wq") {
+	MATCH_SIMPLE_CMD("wq") {
 		edit_save(edit);
 		edit_quit(edit);
+		return;
+	}
+
+	if( *cmd == '!' ) {
+		_handle_shell_command(edit, cmd + 1);
+		return;
+	}
+
+	_handle_complex_command(edit, cmd);
+}
+
+#undef MATCH_SIMPLE_CMD
+
+static void _handle_shell_command(Edit *edit, const char *cmd) {
+	int err = system(cmd);
+	edit_set_status(edit, "system call returned %d", err);
+}
+
+#define MATCH_CMD(C) if( (args = _match_command(cmd, (C), strlen((C)))) )
+
+static void _handle_complex_command(Edit *edit, const char *cmd) {
+	char *args;
+
+	MATCH_CMD("e ") {
+		edit_load(edit, args);
 		return;
 	}
 
 	edit_set_status(edit, "unknown command '%s'", cmd);
+}
+
+#undef MATCH_CMD
+
+static char *_match_command(const char *cmd, const char *match, int len) {
+	while( len-- && *cmd ) {
+		if( *cmd++ != *match++ ) {
+			return NULL;
+		}
+	}
+
+	return (char *)cmd;
 }
 
 static void _update_gutter(Edit *edit) {

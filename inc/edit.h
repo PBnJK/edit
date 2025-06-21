@@ -36,19 +36,32 @@ typedef struct _Edit {
 	Mode mode; /* Current editor mode */
 
 	Line cmd; /* Normal mode command buffer */
+
+	size_t vis_start_line; /* Starting line of selection */
+	size_t vis_start_idx; /* Starting index of selection */
+	long vis_length;
 } Edit;
 
 void edit_new(Edit *edit, const char *filename);
 void edit_free(Edit *edit);
 
+void edit_load(Edit *edit, const char *filename);
 void edit_save(Edit *edit);
 
 void edit_update(Edit *edit);
+
+void edit_change_to_normal(Edit *edit);
+void edit_change_to_insert(Edit *edit);
+void edit_change_to_visual(Edit *edit);
+void edit_change_to_command(Edit *edit);
 
 void edit_mode_normal(Edit *edit, int ch);
 void edit_mode_insert(Edit *edit, int ch);
 void edit_mode_visual(Edit *edit, int ch);
 void edit_mode_command(Edit *edit, int ch);
+
+void edit_yank(Edit *edit, char into, bool kill);
+void edit_paste(Edit *edit, char from);
 
 void edit_insert_char(Edit *edit, char c);
 void edit_delete_char(Edit *edit);
