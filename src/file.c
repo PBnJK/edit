@@ -112,7 +112,7 @@ bool file_load_from_fp(File *file, FILE *fp) {
 
 bool file_save(File *file, const char *as) {
 	if( as ) {
-		strncpy(file->name, as, MAX_FILE_NAME_SIZE);
+		strncpy(file->name, as, MAX_FILE_NAME_SIZE - 1);
 	}
 
 	FILE *fp = fopen(file->name, "w");
@@ -147,9 +147,13 @@ void file_render_line(File *file, size_t idx, int gutter) {
 	line_render(&file->lines[idx]);
 }
 
+void file_replace_char(File *file, size_t line, size_t idx, char ch) {
+	line_replace_char(&file->lines[line], idx, ch);
+}
+
 /* Inserts a character into a line in the file */
-void file_insert_char(File *file, size_t line, size_t idx, char c) {
-	line_insert_char(&file->lines[line], idx, c);
+void file_insert_char(File *file, size_t line, size_t idx, char ch) {
+	line_insert_char(&file->lines[line], idx, ch);
 }
 
 /* Deletes a character from a line in the file */

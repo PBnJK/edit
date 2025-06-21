@@ -13,6 +13,7 @@
 typedef enum _Mode {
 	EDIT_MODE_NORMAL,
 	EDIT_MODE_INSERT,
+	EDIT_MODE_REPLACE,
 	EDIT_MODE_VISUAL,
 	EDIT_MODE_COMMAND,
 } Mode;
@@ -52,18 +53,22 @@ void edit_update(Edit *edit);
 
 void edit_change_to_normal(Edit *edit);
 void edit_change_to_insert(Edit *edit);
+void edit_change_to_replace(Edit *edit);
 void edit_change_to_visual(Edit *edit);
 void edit_change_to_command(Edit *edit);
 
 void edit_mode_normal(Edit *edit, int ch);
 void edit_mode_insert(Edit *edit, int ch);
+void edit_mode_replace(Edit *edit, int ch);
 void edit_mode_visual(Edit *edit, int ch);
 void edit_mode_command(Edit *edit, int ch);
 
 void edit_yank(Edit *edit, char into, bool kill);
 void edit_paste(Edit *edit, char from);
 
-void edit_insert_char(Edit *edit, char c);
+void edit_replace_char(Edit *edit, char ch);
+
+void edit_insert_char(Edit *edit, char ch);
 void edit_delete_char(Edit *edit);
 
 void edit_move_up(Edit *edit);

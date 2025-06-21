@@ -17,6 +17,15 @@
 
 #include "edit.h"
 
+#define SET_CURSOR_BLINK_BLOCK "\x1b[1 q"
+#define SET_CURSOR_STEADY_BLOCK "\x1b[2 q"
+#define SET_CURSOR_BLINK_UNDERLINE "\x1b[3 q"
+#define SET_CURSOR_STEADY_UNDERLINE "\x1b[4 q"
+#define SET_CURSOR_BLINK_BAR "\x1b[5 q"
+#define SET_CURSOR_STEADY_BAR "\x1b[6 q"
+
+static void _write_raw(const char *str);
+
 static void _exit_command_typing(Edit *edit);
 static void _render_command(Edit *edit);
 static void _clear_command(Edit *edit);
@@ -56,7 +65,7 @@ void edit_new(Edit *edit, const char *filename) {
 
 	edit->running = true;
 
-	edit->mode = EDIT_MODE_NORMAL;
+	edit_change_to_normal(edit);
 
 	line_new(&edit->cmd);
 
@@ -106,6 +115,9 @@ void edit_update(Edit *edit) {
 	case EDIT_MODE_INSERT:
 		edit_mode_insert(edit, ch);
 		break;
+	case EDIT_MODE_REPLACE:
+		edit_mode_replace(edit, ch);
+		break;
 	case EDIT_MODE_VISUAL:
 		edit_mode_visual(edit, ch);
 		break;
@@ -117,11 +129,18 @@ void edit_update(Edit *edit) {
 }
 
 void edit_change_to_normal(Edit *edit) {
+	_write_raw(SET_CURSOR_STEADY_BLOCK);
 	edit->mode = EDIT_MODE_NORMAL;
 }
 
 void edit_change_to_insert(Edit *edit) {
+	_write_raw(SET_CURSOR_STEADY_BAR);
 	edit->mode = EDIT_MODE_INSERT;
+}
+
+void edit_change_to_replace(Edit *edit) {
+	_write_raw(SET_CURSOR_STEADY_UNDERLINE);
+	edit->mode = EDIT_MODE_REPLACE;
 }
 
 void edit_change_to_visual(Edit *edit) {
@@ -143,6 +162,7 @@ void edit_mode_normal(Edit *edit, int ch) {
 	case ':': /* Enter COMMAND mode */
 		edit_change_to_command(edit);
 		break;
+	case KEY_IC:
 	case 'i': /* Enter INSERT mode */
 		edit_change_to_insert(edit);
 		break;
@@ -198,6 +218,9 @@ void edit_mode_insert(Edit *edit, int ch) {
 	case CTRL('n'): /* Enter NORMAL mode */
 		edit_change_to_normal(edit);
 		break;
+	case KEY_IC: /* Enter REPLACE mode */
+		edit_change_to_replace(edit);
+		break;
 	case '\n': /* Break line */
 		_newline(edit);
 		break;
@@ -224,6 +247,47 @@ void edit_mode_insert(Edit *edit, int ch) {
 		break;
 	default: /* Type character */
 		edit_insert_char(edit, ch);
+	}
+}
+
+/* Handles the REPLACE mode
+ *
+ * This mode functions similarly to INSERT, except it replaces characters
+ * directly rather than append them "smartly"
+ */
+void edit_mode_replace(Edit *edit, int ch) {
+	switch( ch ) {
+	case CTRL('['):
+	case CTRL('n'): /* Enter NORMAL mode */
+		edit_change_to_normal(edit);
+		break;
+	case KEY_IC: /* Enter INSERT mode */
+		edit_change_to_insert(edit);
+		break;
+	case '\n': /* Break line */
+		_newline(edit);
+		break;
+	case '\t': /* TODO: Handle TAB properly! */
+		edit_replace_char(edit, ' ');
+		edit_insert_char(edit, ' ');
+		edit_insert_char(edit, ' ');
+		edit_insert_char(edit, ' ');
+		break;
+	case KEY_UP: /* Move up */
+		edit_move_up(edit);
+		break;
+	case KEY_DOWN: /* Move down */
+		edit_move_down(edit);
+		break;
+	case KEY_BACKSPACE:
+	case KEY_LEFT: /* Move left */
+		edit_move_left(edit);
+		break;
+	case KEY_RIGHT: /* Move right */
+		edit_move_right(edit);
+		break;
+	default: /* Type character */
+		edit_replace_char(edit, ch);
 	}
 }
 
@@ -267,9 +331,18 @@ void edit_mode_command(Edit *edit, int ch) {
 	}
 }
 
+/* Directly replaces the character under the cursor with @ch */
+void edit_replace_char(Edit *edit, char ch) {
+	file_replace_char(&edit->file, edit->line, edit->idx, ch);
+	++edit->idx;
+	_update_cursor_x(edit);
+
+	edit_render_current_line(edit);
+}
+
 /* Inserts a character under the cursor */
-void edit_insert_char(Edit *edit, char c) {
-	file_insert_char(&edit->file, edit->line, edit->idx, c);
+void edit_insert_char(Edit *edit, char ch) {
+	file_insert_char(&edit->file, edit->line, edit->idx, ch);
 	++edit->idx;
 	_update_cursor_x(edit);
 
@@ -452,6 +525,11 @@ long edit_get_line_length(Edit *edit, size_t idx) {
 	return file_get_line_length(&edit->file, idx);
 }
 
+static void _write_raw(const char *str) {
+	fputs(str, stdout);
+	fflush(stdout);
+}
+
 static void _exit_command_typing(Edit *edit) {
 	line_erase(&edit->cmd);
 	_clear_command(edit);
@@ -609,6 +687,8 @@ static char *_get_mode_string(Edit *edit) {
 		return "VISUAL ";
 	case EDIT_MODE_COMMAND:
 		return "COMMAND";
+	case EDIT_MODE_REPLACE:
+		return "REPLACE";
 	default:
 		fprintf(stderr, "Invalid mode no. %d!\n", edit->mode);
 		exit(1);

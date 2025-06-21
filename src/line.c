@@ -69,8 +69,16 @@ void line_render(Line *line) {
 	addnstr(line->text, line->length);
 }
 
-void line_insert_char_at_end(Line *line, char c) {
-	line_insert_char(line, line->length, c);
+void line_replace_char(Line *line, size_t idx, char ch) {
+	if( idx == line->length ) {
+		line_insert_char(line, idx, ch);
+	} else {
+		line->text[idx] = ch;
+	}
+}
+
+void line_insert_char_at_end(Line *line, char ch) {
+	line_insert_char(line, line->length, ch);
 }
 
 void line_delete_char_at_end(Line *line) {
@@ -78,7 +86,7 @@ void line_delete_char_at_end(Line *line) {
 }
 
 /* Inserts the character @c into column @idx */
-void line_insert_char(Line *line, size_t idx, char c) {
+void line_insert_char(Line *line, size_t idx, char ch) {
 	if( idx < line->length ) {
 		line_shift_chars_forwards(line, idx, 1);
 	} else if( _is_string_full(line) ) {
@@ -88,7 +96,7 @@ void line_insert_char(Line *line, size_t idx, char c) {
 		++line->length;
 	}
 
-	line->text[idx] = c;
+	line->text[idx] = ch;
 }
 
 /* Deletes the character at column @idx */

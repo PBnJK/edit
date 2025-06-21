@@ -18,10 +18,12 @@ void line_erase(Line *line);
 
 void line_render(Line *line);
 
-void line_insert_char_at_end(Line *line, char c);
+void line_replace_char(Line *line, size_t idx, char ch);
+
+void line_insert_char_at_end(Line *line, char ch);
 void line_delete_char_at_end(Line *line);
 
-void line_insert_char(Line *line, size_t idx, char c);
+void line_insert_char(Line *line, size_t idx, char ch);
 void line_delete_char(Line *line, size_t idx);
 
 void line_insert_str(Line *line, size_t idx, char *str);
