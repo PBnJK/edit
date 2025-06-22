@@ -67,6 +67,8 @@ void edit_mode_command(Edit *edit, int ch);
 void edit_yank(Edit *edit, char into, bool kill);
 void edit_paste(Edit *edit, char from);
 
+void edit_goto(Edit *edit, size_t idx);
+
 void edit_replace_char(Edit *edit, char ch);
 
 void edit_insert_char(Edit *edit, char ch);
@@ -93,5 +95,7 @@ Line *edit_get_line(Edit *edit, size_t idx);
 
 long edit_get_current_line_length(Edit *edit);
 long edit_get_line_length(Edit *edit, size_t idx);
+
+size_t edit_get_ui_offset(Edit *edit);
 
 #endif // !GUARD_EDIT_EDIT_H_

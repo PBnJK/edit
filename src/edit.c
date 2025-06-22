@@ -41,6 +41,8 @@ static void _update_cursor_x(Edit *edit);
 
 static void _move_to_start_of_line(Edit *edit);
 static void _move_to_end_of_line(Edit *edit);
+
+static void _move_to_start_of_file(Edit *edit);
 static void _move_to_end_of_file(Edit *edit);
 
 static void _newline(Edit *edit);
@@ -93,15 +95,18 @@ void edit_load(Edit *edit, const char *filename) {
 	file_free(&edit->file);
 
 	file_new(&edit->file, filename);
-	edit->line = 0;
+	edit_render(edit);
+	edit_render_status(edit);
+
+	edit->vx = 0;
 	edit->vy = 0;
+
+	edit->line = 0;
 	edit->y = 0;
 
 	edit->idx = 0;
+	edit->x = 0;
 	_update_cursor_x(edit);
-
-	edit_render(edit);
-	edit_render_status(edit);
 }
 
 /* Saves the current file */
@@ -329,6 +334,22 @@ void edit_mode_visual(Edit *edit, int ch) {
 	case CTRL('n'): /* Enter NORMAL mode */
 		edit_change_to_normal(edit);
 		break;
+	case 'h':
+	case KEY_LEFT: /* Move left */
+		edit_move_left(edit);
+		break;
+	case 'j':
+	case KEY_DOWN: /* Move down */
+		edit_move_down(edit);
+		break;
+	case 'k':
+	case KEY_UP: /* Move up */
+		edit_move_up(edit);
+		break;
+	case 'l':
+	case KEY_RIGHT: /* Move right */
+		edit_move_right(edit);
+		break;
 	}
 }
 
@@ -358,6 +379,38 @@ void edit_mode_command(Edit *edit, int ch) {
 			_render_command(edit);
 		}
 	}
+}
+
+void edit_goto(Edit *edit, size_t idx) {
+	if( idx >= edit->file.length ) {
+		idx = edit->file.length - 1;
+	}
+
+	if( idx == edit->line ) {
+		return;
+	}
+
+	edit->line = idx;
+
+	size_t offset = edit->vy + edit->y;
+	if( idx < offset ) {
+		edit->y = 0;
+		if( edit->vy > idx ) {
+			edit->vy = idx;
+			edit_render(edit);
+		}
+	} else {
+		size_t ui_offset = edit_get_ui_offset(edit);
+		if( idx - edit->vy >= ui_offset ) {
+			edit->vy = idx - ui_offset + 1;
+			edit->y = ui_offset - 1;
+			edit_render(edit);
+		} else {
+			edit->y = idx;
+		}
+	}
+
+	_update_cursor_x(edit);
 }
 
 /* Directly replaces the character under the cursor with @ch */
@@ -408,12 +461,14 @@ void edit_move_up(Edit *edit) {
 
 	--edit->line;
 	if( edit->y == 0 ) {
-		edit->vy = edit->line - (edit->h - 4);
-		edit->y = edit->h - 3;
-		edit_render(edit);
+		if( edit->vy > 0 ) {
+			--edit->vy;
+			edit_render(edit);
+		}
+	} else {
+		--edit->y;
 	}
 
-	--edit->y;
 	_update_cursor_x(edit);
 
 	refresh();
@@ -428,9 +483,11 @@ void edit_move_down(Edit *edit) {
 	}
 
 	++edit->line;
-	if( ++edit->y >= edit->h - 3 ) {
-		edit->vy = edit->line;
-		edit->y = 0;
+
+	size_t ui_offset = edit_get_ui_offset(edit);
+	if( ++edit->y >= ui_offset ) {
+		++edit->vy;
+		edit->y = ui_offset - 1;
 		edit_render(edit);
 	}
 
@@ -493,6 +550,7 @@ void edit_render_status(Edit *edit) {
 
 	printw("%s > ", _get_mode_string(edit));
 	printw("%zu %zu > ", edit->idx + 1, edit->line + 1);
+	printw("[%zu %zu] > ", edit->vx, edit->vy);
 	printw("%s", edit->file.name);
 
 	if( edit->msg_len ) {
@@ -525,7 +583,7 @@ void edit_render_current_line(Edit *edit) {
 /* Renders a line in the file */
 void edit_render_line(Edit *edit, size_t idx) {
 	_update_gutter(edit);
-	file_render_line(&edit->file, idx, edit->gutter);
+	file_render_line(&edit->file, idx, edit->vy, edit->gutter);
 }
 
 /* Quits the editor */
@@ -552,6 +610,10 @@ long edit_get_current_line_length(Edit *edit) {
 /* Returns the length of the line at row @idx */
 long edit_get_line_length(Edit *edit, size_t idx) {
 	return file_get_line_length(&edit->file, idx);
+}
+
+size_t edit_get_ui_offset(Edit *edit) {
+	return edit->h - 3;
 }
 
 static void _write_raw(const char *str) {
@@ -594,6 +656,22 @@ static void _handle_command(Edit *edit) {
 	const int len = strlen(cmd);
 
 	if( len == 0 ) {
+		return;
+	}
+
+	if( *cmd >= '0' && *cmd <= '9' ) {
+		size_t n = 0;
+		do {
+			n *= 10;
+			n += *cmd++ - '0';
+		} while( *cmd >= '0' && *cmd <= '9' );
+
+		if( n == 0 ) {
+			edit_goto(edit, 0);
+		} else {
+			edit_goto(edit, n - 1);
+		}
+
 		return;
 	}
 
@@ -668,6 +746,7 @@ static void _update_cursor_x(Edit *edit) {
 	if( s_length == -1 ) {
 		edit->line = 0;
 		edit->y = 0;
+		edit->vy = 0;
 		s_length = edit_get_current_line_length(edit);
 	}
 
@@ -692,8 +771,13 @@ static void _move_to_end_of_line(Edit *edit) {
 	_update_cursor_x(edit);
 }
 
+static void _move_to_start_of_file(Edit *edit) {
+	edit_goto(edit, 0);
+	_move_to_start_of_line(edit);
+}
+
 static void _move_to_end_of_file(Edit *edit) {
-	edit->line = edit->file.length - 1;
+	edit_goto(edit, edit->file.length - 1);
 	_move_to_start_of_line(edit);
 }
 

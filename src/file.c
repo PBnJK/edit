@@ -139,17 +139,19 @@ void file_render(File *file, size_t from, int gutter) {
 	for( size_t y = 0; y < maxy && y < file->length - from; ++y ) {
 		move(y, 0);
 
-		size_t offset = y + from;
+		const size_t offset = y + from;
 		printw("%-*zu", gutter, offset + 1);
 		line_render(&file->lines[offset]);
 	}
 }
 
 /* Renders a single line from the file */
-void file_render_line(File *file, size_t idx, int gutter) {
+void file_render_line(File *file, size_t idx, size_t from, int gutter) {
+	const size_t offset = idx + from;
+
 	move(idx, 0);
-	printw("%-*zu", gutter, idx + 1);
-	line_render(&file->lines[idx]);
+	printw("%-*zu", gutter, offset + 1);
+	line_render(&file->lines[offset]);
 }
 
 void file_replace_char(File *file, size_t line, size_t idx, char ch) {
