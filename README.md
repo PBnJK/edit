@@ -8,8 +8,9 @@ A simple text editor in C with ncurses
 - [x] Saving
 - [x] Loading
 - [x] More refined editing
+- [x] Scrolling
+- [x] Undo/Redo
 - [ ] Copy & Paste (Kill & Yank)
-- [ ] Scrolling
 
 ## Dependencies
 

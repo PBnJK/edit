@@ -34,7 +34,7 @@ Command *cmd_pop(CommandStack *cmds) {
 	return &cmds->cmds[--cmds->length];
 }
 
-/* Pushes a REP_CH command to the command stack */
+/* Pushes a CMD_REP_CH command to the command stack */
 void cmd_rep_ch(CommandStack *cmds, size_t line, size_t idx, char ch) {
 	Command cmd = {
 		.type = CMD_REP_CH,
@@ -46,7 +46,7 @@ void cmd_rep_ch(CommandStack *cmds, size_t line, size_t idx, char ch) {
 	cmd_push(cmds, cmd);
 }
 
-/* Pushes an ADD_CH command to the command stack */
+/* Pushes a CMD_ADD_CH command to the command stack */
 void cmd_add_ch(CommandStack *cmds, size_t line, size_t idx, char ch) {
 	Command cmd = {
 		.type = CMD_ADD_CH,
@@ -58,7 +58,7 @@ void cmd_add_ch(CommandStack *cmds, size_t line, size_t idx, char ch) {
 	cmd_push(cmds, cmd);
 }
 
-/* Pushes a DEL_CH command into the command stack */
+/* Pushes a CMD_DEL_CH command into the command stack */
 void cmd_del_ch(CommandStack *cmds, size_t line, size_t idx, char ch) {
 	Command cmd = {
 		.type = CMD_DEL_CH,
@@ -70,7 +70,19 @@ void cmd_del_ch(CommandStack *cmds, size_t line, size_t idx, char ch) {
 	cmd_push(cmds, cmd);
 }
 
-/* Pushes an ADD_LINE command to the command stack */
+/* Pushes a CMD_NEW_LINE command to the command stack */
+void cmd_new_line(CommandStack *cmds, size_t line, size_t idx) {
+	Command cmd = {
+		.type = CMD_NEW_LINE,
+		.line = line,
+		.idx = idx,
+		.data.ch = '\0',
+	};
+
+	cmd_push(cmds, cmd);
+}
+
+/* Pushes a CMD_ADD_LINE command to the command stack */
 void cmd_add_line(CommandStack *cmds, size_t line, size_t idx, Line l) {
 	Command cmd = {
 		.type = CMD_ADD_LINE,
@@ -82,7 +94,7 @@ void cmd_add_line(CommandStack *cmds, size_t line, size_t idx, Line l) {
 	cmd_push(cmds, cmd);
 }
 
-/* Pushes a DEL_LINE command into the command stack */
+/* Pushes a CMD_DEL_LINE command into the command stack */
 void cmd_del_line(CommandStack *cmds, size_t line, size_t idx, Line l) {
 	Command cmd = {
 		.type = CMD_DEL_LINE,

@@ -11,6 +11,7 @@ typedef enum _CommandType {
 	CMD_REP_CH, /* Replaces a character */
 	CMD_ADD_CH, /* Adds a character */
 	CMD_DEL_CH, /* Deletes a character */
+	CMD_NEW_LINE, /* Adds a line break */
 	CMD_ADD_LINE, /* Adds a line */
 	CMD_DEL_LINE, /* Deletes a line */
 } CommandType;
@@ -44,6 +45,7 @@ void cmd_rep_ch(CommandStack *cmds, size_t line, size_t idx, char ch);
 void cmd_add_ch(CommandStack *cmds, size_t line, size_t idx, char ch);
 void cmd_del_ch(CommandStack *cmds, size_t line, size_t idx, char ch);
 
+void cmd_new_line(CommandStack *cmds, size_t line, size_t idx);
 void cmd_add_line(CommandStack *cmds, size_t line, size_t idx, Line l);
 void cmd_del_line(CommandStack *cmds, size_t line, size_t idx, Line l);
 

@@ -74,6 +74,7 @@ void edit_rep_ch(Edit *edit, CommandStack *stack, char ch);
 void edit_add_ch(Edit *edit, CommandStack *stack, char ch);
 void edit_del_ch(Edit *edit, CommandStack *stack, char ch);
 
+void edit_new_line(Edit *edit, CommandStack *stack);
 void edit_add_line(Edit *edit, CommandStack *stack, Line l);
 void edit_del_line(Edit *edit, CommandStack *stack, Line l);
 
