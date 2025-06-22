@@ -5,11 +5,13 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include "cmd.h"
 #include "file.h"
 #include "line.h"
 
 #define STATUS_MSG_LEN (60)
 
+/* Editor modes */
 typedef enum _Mode {
 	EDIT_MODE_NORMAL,
 	EDIT_MODE_INSERT,
@@ -37,10 +39,14 @@ typedef struct _Edit {
 	Mode mode; /* Current editor mode */
 
 	Line cmd; /* Normal mode command buffer */
+	size_t num_arg; /* Numerical argument to command */
 
 	size_t vis_start_line; /* Starting line of selection */
 	size_t vis_start_idx; /* Starting index of selection */
-	long vis_length;
+	size_t vis_length; /* Length of the selection */
+
+	CommandStack undo; /* Undo stack */
+	CommandStack redo; /* Redo stack */
 } Edit;
 
 void edit_new(Edit *edit, const char *filename);
@@ -63,6 +69,18 @@ void edit_mode_insert(Edit *edit, int ch);
 void edit_mode_replace(Edit *edit, int ch);
 void edit_mode_visual(Edit *edit, int ch);
 void edit_mode_command(Edit *edit, int ch);
+
+void edit_rep_ch(Edit *edit, char ch);
+void edit_add_ch(Edit *edit, char ch);
+void edit_del_ch(Edit *edit, char ch);
+
+void edit_add_line(Edit *edit, Line l);
+void edit_del_line(Edit *edit, Line l);
+
+void edit_undo(Edit *edit);
+void edit_redo(Edit *edit);
+
+void edit_perform_cmd(Edit *edit, Command *cmd);
 
 void edit_yank(Edit *edit, char into, bool kill);
 void edit_paste(Edit *edit, char from);

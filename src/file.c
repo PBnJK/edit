@@ -154,8 +154,8 @@ void file_render_line(File *file, size_t idx, size_t from, int gutter) {
 	line_render(&file->lines[offset]);
 }
 
-void file_replace_char(File *file, size_t line, size_t idx, char ch) {
-	line_replace_char(&file->lines[line], idx, ch);
+char file_replace_char(File *file, size_t line, size_t idx, char ch) {
+	return line_replace_char(&file->lines[line], idx, ch);
 }
 
 /* Inserts a character into a line in the file */
@@ -164,8 +164,8 @@ void file_insert_char(File *file, size_t line, size_t idx, char ch) {
 }
 
 /* Deletes a character from a line in the file */
-void file_delete_char(File *file, size_t line, size_t idx) {
-	line_delete_char(&file->lines[line], idx);
+char file_delete_char(File *file, size_t line, size_t idx) {
+	return line_delete_char(&file->lines[line], idx);
 }
 
 /* Inserts a string

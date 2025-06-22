@@ -70,12 +70,15 @@ void line_render(Line *line) {
 }
 
 /* Replaces the character at @idx with @ch */
-void line_replace_char(Line *line, size_t idx, char ch) {
+char line_replace_char(Line *line, size_t idx, char ch) {
 	if( idx == line->length ) {
 		line_insert_char(line, idx, ch);
-	} else {
-		line->text[idx] = ch;
+		return '\0';
 	}
+
+	char prev = line->text[idx];
+	line->text[idx] = ch;
+	return prev;
 }
 
 /* Inserts a character at the end of the line */
@@ -84,8 +87,8 @@ void line_insert_char_at_end(Line *line, char ch) {
 }
 
 /* Deletes the character at the end of the line */
-void line_delete_char_at_end(Line *line) {
-	line_delete_char(line, line->length);
+char line_delete_char_at_end(Line *line) {
+	return line_delete_char(line, line->length);
 }
 
 /* Inserts the character @ch into column @idx */
@@ -103,12 +106,14 @@ void line_insert_char(Line *line, size_t idx, char ch) {
 }
 
 /* Deletes the character at column @idx */
-void line_delete_char(Line *line, size_t idx) {
+char line_delete_char(Line *line, size_t idx) {
 	if( idx == 0 ) {
-		return;
+		return '\0';
 	}
 
+	char prev = line->text[idx - 1];
 	line_shift_chars_backwards(line, idx, 1);
+	return prev;
 }
 
 /* Inserts a string @str into the line at index @idx */

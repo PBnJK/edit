@@ -10,6 +10,7 @@
 
 #include <ncurses.h>
 
+#include "cmd.h"
 #include "global.h"
 
 #include "file.h"
@@ -70,10 +71,14 @@ void edit_new(Edit *edit, const char *filename) {
 	edit_change_to_normal(edit);
 
 	line_new(&edit->cmd);
+	edit->num_arg = 0;
 
 	edit->vis_start_idx = 0;
 	edit->vis_start_line = 0;
 	edit->vis_length = 0;
+
+	cmd_init(&edit->undo);
+	cmd_init(&edit->redo);
 
 	file_new(&edit->file, filename);
 	_update_gutter(edit);
@@ -142,6 +147,7 @@ void edit_update(Edit *edit) {
 	edit_render_status(edit);
 }
 
+/* Refreshes the window after a resize */
 void edit_refresh(Edit *edit) {
 	endwin();
 	refresh();
@@ -158,25 +164,30 @@ void edit_refresh(Edit *edit) {
 	refresh();
 }
 
+/* Change to NORMAL mode */
 void edit_change_to_normal(Edit *edit) {
 	_write_raw(SET_CURSOR_STEADY_BLOCK);
 	edit->mode = EDIT_MODE_NORMAL;
 }
 
+/* Change to INSERT mode */
 void edit_change_to_insert(Edit *edit) {
 	_write_raw(SET_CURSOR_STEADY_BAR);
 	edit->mode = EDIT_MODE_INSERT;
 }
 
+/* Change to REPLACE mode */
 void edit_change_to_replace(Edit *edit) {
 	_write_raw(SET_CURSOR_STEADY_UNDERLINE);
 	edit->mode = EDIT_MODE_REPLACE;
 }
 
+/* Change to VISUAL mode */
 void edit_change_to_visual(Edit *edit) {
 	edit->mode = EDIT_MODE_VISUAL;
 }
 
+/* Change to COMMAND mode */
 void edit_change_to_command(Edit *edit) {
 	edit->mode = EDIT_MODE_COMMAND;
 	_render_command(edit);
@@ -220,6 +231,14 @@ void edit_mode_normal(Edit *edit, int ch) {
 	case 'v': /* Enter VISUAL mode */
 		edit_change_to_visual(edit);
 		break;
+	case 'u':
+	case CTRL('z'): /* Undo */
+		edit_undo(edit);
+		break;
+	case CTRL('R'):
+	case CTRL('y'): /* Redo */
+		edit_redo(edit);
+		break;
 	case 'h':
 	case KEY_LEFT:
 	case KEY_BACKSPACE: /* Move left */
@@ -253,6 +272,13 @@ void edit_mode_insert(Edit *edit, int ch) {
 		break;
 	case KEY_IC: /* Enter REPLACE mode */
 		edit_change_to_replace(edit);
+		break;
+	case CTRL('Z'):
+		edit_undo(edit);
+		break;
+	case CTRL('R'):
+	case CTRL('y'): /* Redo */
+		edit_redo(edit);
 		break;
 	case '\n': /* Break line */
 		_newline(edit);
@@ -296,6 +322,13 @@ void edit_mode_replace(Edit *edit, int ch) {
 		break;
 	case KEY_IC: /* Enter INSERT mode */
 		edit_change_to_insert(edit);
+		break;
+	case CTRL('Z'):
+		edit_undo(edit);
+		break;
+	case CTRL('R'):
+	case CTRL('y'): /* Redo */
+		edit_redo(edit);
 		break;
 	case '\n': /* Break line */
 		_newline(edit);
@@ -381,6 +414,59 @@ void edit_mode_command(Edit *edit, int ch) {
 	}
 }
 
+void edit_rep_ch(Edit *edit, char ch) {
+	cmd_rep_ch(&edit->undo, edit->line, edit->idx, ch);
+}
+
+void edit_add_ch(Edit *edit, char ch) {
+	cmd_add_ch(&edit->undo, edit->line, edit->idx, ch);
+}
+
+void edit_del_ch(Edit *edit, char ch) {
+	cmd_del_ch(&edit->undo, edit->line, edit->idx + 1, ch);
+}
+
+void edit_undo(Edit *edit) {
+	Command *cmd = cmd_pop(&edit->undo);
+	if( cmd == NULL ) {
+		edit_set_status(edit, "nothing to undo!");
+		return;
+	}
+
+	cmd_push(&edit->redo, cmd_invert(cmd));
+
+	edit_perform_cmd(edit, cmd);
+}
+
+void edit_redo(Edit *edit) {
+	Command *cmd = cmd_pop(&edit->redo);
+	if( cmd == NULL ) {
+		edit_set_status(edit, "nothing to redo!");
+		return;
+	}
+
+	cmd_push(&edit->undo, cmd_invert(cmd));
+
+	edit_perform_cmd(edit, cmd);
+}
+
+void edit_perform_cmd(Edit *edit, Command *cmd) {
+	switch( cmd->type ) {
+	case CMD_ADD_CH:
+		file_insert_char(&edit->file, cmd->line, cmd->idx, cmd->data.ch);
+		break;
+	case CMD_DEL_CH:
+		file_delete_char(&edit->file, cmd->line, cmd->idx);
+		break;
+	default:
+		edit_set_status(edit, "not yet implemented!");
+	}
+
+	_update_cursor_x(edit);
+	edit_render(edit);
+}
+
+/* Jumps to a line */
 void edit_goto(Edit *edit, size_t idx) {
 	if( idx >= edit->file.length ) {
 		idx = edit->file.length - 1;
@@ -415,11 +501,13 @@ void edit_goto(Edit *edit, size_t idx) {
 
 /* Directly replaces the character under the cursor with @ch */
 void edit_replace_char(Edit *edit, char ch) {
-	file_replace_char(&edit->file, edit->line, edit->idx, ch);
+	char prev = file_replace_char(&edit->file, edit->line, edit->idx, ch);
 	++edit->idx;
 	_update_cursor_x(edit);
 
 	edit_render_current_line(edit);
+
+	edit_rep_ch(edit, prev);
 }
 
 /* Inserts a character under the cursor */
@@ -429,6 +517,8 @@ void edit_insert_char(Edit *edit, char ch) {
 	_update_cursor_x(edit);
 
 	edit_render_current_line(edit);
+
+	edit_del_ch(edit, ch);
 }
 
 /* Deletes the character under the cursor */
@@ -444,12 +534,14 @@ void edit_delete_char(Edit *edit) {
 		return;
 	}
 
-	file_delete_char(&edit->file, edit->line, edit->idx);
+	char prev = file_delete_char(&edit->file, edit->line, edit->idx);
 
 	--edit->idx;
 	_update_cursor_x(edit);
 
 	edit_render_current_line(edit);
+
+	edit_add_ch(edit, prev);
 }
 
 /* If possible, moves the cursor up one row */
@@ -665,6 +757,14 @@ static void _handle_command(Edit *edit) {
 			n *= 10;
 			n += *cmd++ - '0';
 		} while( *cmd >= '0' && *cmd <= '9' );
+
+		/* If the command hasn't ended yet, assume this is a command with a
+		 * numerical argument
+		 */
+		edit->num_arg = n;
+		if( *cmd ) {
+			_handle_complex_command(edit, cmd);
+		}
 
 		if( n == 0 ) {
 			edit_goto(edit, 0);
