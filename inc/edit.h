@@ -50,6 +50,7 @@ void edit_load(Edit *edit, const char *filename);
 void edit_save(Edit *edit);
 
 void edit_update(Edit *edit);
+void edit_refresh(Edit *edit);
 
 void edit_change_to_normal(Edit *edit);
 void edit_change_to_insert(Edit *edit);

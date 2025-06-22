@@ -93,7 +93,11 @@ void edit_load(Edit *edit, const char *filename) {
 	file_free(&edit->file);
 
 	file_new(&edit->file, filename);
-	_update_gutter(edit);
+	edit->line = 0;
+	edit->vy = 0;
+	edit->y = 0;
+
+	edit->idx = 0;
 	_update_cursor_x(edit);
 
 	edit_render(edit);
@@ -108,6 +112,11 @@ void edit_save(Edit *edit) {
 /* Updates the editor */
 void edit_update(Edit *edit) {
 	int ch = getch();
+	if( ch == KEY_RESIZE || ch == ERR ) {
+		edit_refresh(edit);
+		return;
+	}
+
 	switch( edit->mode ) {
 	case EDIT_MODE_NORMAL:
 		edit_mode_normal(edit, ch);
@@ -126,6 +135,22 @@ void edit_update(Edit *edit) {
 	}
 
 	edit_render_status(edit);
+}
+
+void edit_refresh(Edit *edit) {
+	endwin();
+	refresh();
+
+	edit->w = COLS;
+	edit->h = LINES;
+
+	_update_gutter(edit);
+	_update_cursor_x(edit);
+
+	edit_render(edit);
+	edit_render_status(edit);
+
+	refresh();
 }
 
 void edit_change_to_normal(Edit *edit) {
@@ -165,6 +190,9 @@ void edit_mode_normal(Edit *edit, int ch) {
 	case KEY_IC:
 	case 'i': /* Enter INSERT mode */
 		edit_change_to_insert(edit);
+		break;
+	case 'R': /* Enter REPLACE mode */
+		edit_change_to_replace(edit);
 		break;
 	case '^': /* Move to the start of the line */
 		_move_to_start_of_line(edit);
@@ -314,6 +342,7 @@ void edit_mode_command(Edit *edit, int ch) {
 	case CTRL('['):
 	case CTRL('n'): /* Enter NORMAL mode */
 		edit_change_to_normal(edit);
+		_exit_command_typing(edit);
 		break;
 	case '\n': /* Run command */
 		_handle_command(edit);
@@ -635,9 +664,11 @@ static void _update_gutter(Edit *edit) {
 }
 
 static void _update_cursor_x(Edit *edit) {
-	const long s_length = edit_get_current_line_length(edit);
+	long s_length = edit_get_current_line_length(edit);
 	if( s_length == -1 ) {
-		return;
+		edit->line = 0;
+		edit->y = 0;
+		s_length = edit_get_current_line_length(edit);
 	}
 
 	const size_t length = (size_t)s_length;
@@ -647,6 +678,7 @@ static void _update_cursor_x(Edit *edit) {
 
 	edit->x = edit->idx + edit->gutter;
 	move(edit->y, edit->x);
+	refresh();
 }
 
 static void _move_to_start_of_line(Edit *edit) {

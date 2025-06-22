@@ -2,6 +2,14 @@
  * Entry-point
  */
 
+#if defined(__linux__) || defined(__APPLE__)
+#include <signal.h>
+#elif defined(_WIN32)
+#include <windows.h>
+#include <stdio.h>
+#endif
+
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -12,28 +20,72 @@
 
 #include "edit.h"
 
+static Edit edit;
+
+static bool _register_signal_handlers(void);
+
 static void _init_ncurses(void);
+static void _cleanup(void);
 
 int main(int argc, char *argv[]) {
 	char *initial = NULL;
-	Edit edit;
-
 	if( argc > 1 ) {
 		initial = argv[1];
 	}
 
 	_init_ncurses();
-	edit_new(&edit, initial);
 
+	if( !_register_signal_handlers() ) {
+		return 1;
+	}
+
+	edit_new(&edit, initial);
 	while( edit.running ) {
 		edit_update(&edit);
 	}
 
-	edit_free(&edit);
-
-	endwin();
+	_cleanup();
 
 	return EXIT_SUCCESS;
+}
+
+#if defined(__linux__) || defined(__APPLE__)
+void _unix_signal_handler(int sig) {
+	if( sig == SIGINT || sig == SIGTERM ) {
+		edit.running = false;
+	}
+}
+#elif defined(_WIN32)
+BOOL WINAPI _win_signal_handler(DWORD sig) {
+	if( sig == CTRL_C_EVENT || sig == CTRL_CLOSE_EVENT ) {
+		edit.running = false;
+		return TRUE;
+	}
+
+	return FALSE;
+}
+#endif
+
+/* Registers handlers for certain signals */
+static bool _register_signal_handlers(void) {
+#if defined(__linux__) || defined(__APPLE__)
+	struct sigaction act = { 0 };
+	act.sa_handler = _unix_signal_handler;
+	act.sa_flags = 0;
+	sigemptyset(&act.sa_mask);
+
+	if( sigaction(SIGINT, &act, NULL) == -1 ) {
+		return false;
+	}
+
+	if( sigaction(SIGTERM, &act, NULL) == -1 ) {
+		return false;
+	}
+
+	return true;
+#elif defined(_WIN32)
+	return SetConsoleCtrlHandler(_win_signal_handler, TRUE) == 0 ? true : false;
+#endif
 }
 
 /* Initializes ncurses */
@@ -44,12 +96,10 @@ static void _init_ncurses(void) {
 
 	/* Set up ncurses to:
 	 * 1. Immediately return characters without waiting for a newline
-	 * 2. Pass signals (SIGINT, SIGKILL, etc.) to us
-	 * 3. Not echo characters to the screen
-	 * 4. Read keypad input
+	 * 2. Not echo characters to the screen
+	 * 3. Read keypad input
 	 */
 	cbreak();
-	// raw();
 	noecho();
 	keypad(stdscr, true);
 
@@ -66,4 +116,10 @@ static void _init_ncurses(void) {
 	init_pair(COLP_BLACK, COLOR_BLACK, COLOR_WHITE);
 
 	refresh();
+}
+
+/* Cleans up the program */
+static void _cleanup(void) {
+	edit_quit(&edit);
+	endwin();
 }

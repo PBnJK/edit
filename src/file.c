@@ -110,12 +110,17 @@ bool file_load_from_fp(File *file, FILE *fp) {
 	return true;
 }
 
+/* Saves the file */
 bool file_save(File *file, const char *as) {
 	if( as ) {
 		strncpy(file->name, as, MAX_FILE_NAME_SIZE - 1);
 	}
 
 	FILE *fp = fopen(file->name, "w");
+	if( fp == NULL ) {
+		return false;
+	}
+
 	for( size_t i = 0; i < file->length; ++i ) {
 		Line *line = file_get_line(file, i);
 		fwrite(line->text, sizeof(*line->text), line->length, fp);
