@@ -94,40 +94,6 @@ void cmd_del_line(CommandStack *cmds, size_t line, size_t idx, Line l) {
 	cmd_push(cmds, cmd);
 }
 
-/* "Inverts" a command
- *
- * That is, an ADD_CH becomes a DEL_CH (delete instead of adding,) an ADD_LINE
- * becomes a DEL_LINE, etc.
- *
- * This is used to turn an undo action into a redo action, and vice-versa
- */
-Command cmd_invert(Command *cmd) {
-	Command out = *cmd;
-
-	switch( cmd->type ) {
-	case CMD_REP_CH: /* This one's the same */
-		break;
-	case CMD_ADD_CH:
-		out.type = CMD_DEL_CH;
-		++out.idx;
-		break;
-	case CMD_DEL_CH:
-		out.type = CMD_ADD_CH;
-		--out.idx;
-		break;
-	case CMD_ADD_LINE:
-		out.type = CMD_ADD_LINE;
-		line_clone(&cmd->data.line, &out.data.line, true);
-		break;
-	case CMD_DEL_LINE:
-		out.type = CMD_DEL_LINE;
-		line_clone(&cmd->data.line, &out.data.line, true);
-		break;
-	}
-
-	return out;
-}
-
 /* Frees a command from memory */
 void cmd_free_cmd(Command *cmd) {
 	if( cmd->type == CMD_ADD_LINE || cmd->type == CMD_DEL_LINE ) {

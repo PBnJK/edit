@@ -70,27 +70,26 @@ void edit_mode_replace(Edit *edit, int ch);
 void edit_mode_visual(Edit *edit, int ch);
 void edit_mode_command(Edit *edit, int ch);
 
-void edit_rep_ch(Edit *edit, char ch);
-void edit_add_ch(Edit *edit, char ch);
-void edit_del_ch(Edit *edit, char ch);
+void edit_rep_ch(Edit *edit, CommandStack *stack, char ch);
+void edit_add_ch(Edit *edit, CommandStack *stack, char ch);
+void edit_del_ch(Edit *edit, CommandStack *stack, char ch);
 
-void edit_add_line(Edit *edit, Line l);
-void edit_del_line(Edit *edit, Line l);
+void edit_add_line(Edit *edit, CommandStack *stack, Line l);
+void edit_del_line(Edit *edit, CommandStack *stack, Line l);
 
 void edit_undo(Edit *edit);
 void edit_redo(Edit *edit);
 
-void edit_perform_cmd(Edit *edit, Command *cmd);
+void edit_perform_cmd(Edit *edit, CommandStack *stack, Command *cmd);
 
 void edit_yank(Edit *edit, char into, bool kill);
 void edit_paste(Edit *edit, char from);
 
 void edit_goto(Edit *edit, size_t idx);
 
-void edit_replace_char(Edit *edit, char ch);
-
-void edit_insert_char(Edit *edit, char ch);
-void edit_delete_char(Edit *edit);
+void edit_replace_char(Edit *edit, CommandStack *stack, char ch);
+void edit_insert_char(Edit *edit, CommandStack *stack, char ch);
+void edit_delete_char(Edit *edit, CommandStack *stack);
 
 void edit_move_up(Edit *edit);
 void edit_move_down(Edit *edit);

@@ -284,10 +284,10 @@ void edit_mode_insert(Edit *edit, int ch) {
 		_newline(edit);
 		break;
 	case '\t': /* TODO: Handle TAB properly! */
-		edit_insert_char(edit, ' ');
-		edit_insert_char(edit, ' ');
-		edit_insert_char(edit, ' ');
-		edit_insert_char(edit, ' ');
+		edit_insert_char(edit, &edit->undo, ' ');
+		edit_insert_char(edit, &edit->undo, ' ');
+		edit_insert_char(edit, &edit->undo, ' ');
+		edit_insert_char(edit, &edit->undo, ' ');
 		break;
 	case KEY_UP: /* Move up */
 		edit_move_up(edit);
@@ -302,10 +302,10 @@ void edit_mode_insert(Edit *edit, int ch) {
 		edit_move_right(edit);
 		break;
 	case KEY_BACKSPACE: /* Erase character */
-		edit_delete_char(edit);
+		edit_delete_char(edit, &edit->undo);
 		break;
 	default: /* Type character */
-		edit_insert_char(edit, ch);
+		edit_insert_char(edit, &edit->undo, ch);
 	}
 }
 
@@ -334,10 +334,10 @@ void edit_mode_replace(Edit *edit, int ch) {
 		_newline(edit);
 		break;
 	case '\t': /* TODO: Handle TAB properly! */
-		edit_replace_char(edit, ' ');
-		edit_insert_char(edit, ' ');
-		edit_insert_char(edit, ' ');
-		edit_insert_char(edit, ' ');
+		edit_replace_char(edit, &edit->undo, ' ');
+		edit_insert_char(edit, &edit->undo, ' ');
+		edit_insert_char(edit, &edit->undo, ' ');
+		edit_insert_char(edit, &edit->undo, ' ');
 		break;
 	case KEY_UP: /* Move up */
 		edit_move_up(edit);
@@ -353,7 +353,7 @@ void edit_mode_replace(Edit *edit, int ch) {
 		edit_move_right(edit);
 		break;
 	default: /* Type character */
-		edit_replace_char(edit, ch);
+		edit_replace_char(edit, &edit->undo, ch);
 	}
 }
 
@@ -414,16 +414,16 @@ void edit_mode_command(Edit *edit, int ch) {
 	}
 }
 
-void edit_rep_ch(Edit *edit, char ch) {
-	cmd_rep_ch(&edit->undo, edit->line, edit->idx, ch);
+void edit_rep_ch(Edit *edit, CommandStack *stack, char ch) {
+	cmd_rep_ch(stack, edit->line, edit->idx - 1, ch);
 }
 
-void edit_add_ch(Edit *edit, char ch) {
-	cmd_add_ch(&edit->undo, edit->line, edit->idx, ch);
+void edit_add_ch(Edit *edit, CommandStack *stack, char ch) {
+	cmd_add_ch(stack, edit->line, edit->idx, ch);
 }
 
-void edit_del_ch(Edit *edit, char ch) {
-	cmd_del_ch(&edit->undo, edit->line, edit->idx + 1, ch);
+void edit_del_ch(Edit *edit, CommandStack *stack, char ch) {
+	cmd_del_ch(stack, edit->line, edit->idx + 1, ch);
 }
 
 void edit_undo(Edit *edit) {
@@ -433,9 +433,7 @@ void edit_undo(Edit *edit) {
 		return;
 	}
 
-	cmd_push(&edit->redo, cmd_invert(cmd));
-
-	edit_perform_cmd(edit, cmd);
+	edit_perform_cmd(edit, &edit->redo, cmd);
 }
 
 void edit_redo(Edit *edit) {
@@ -445,24 +443,29 @@ void edit_redo(Edit *edit) {
 		return;
 	}
 
-	cmd_push(&edit->undo, cmd_invert(cmd));
-
-	edit_perform_cmd(edit, cmd);
+	edit_perform_cmd(edit, &edit->undo, cmd);
 }
 
-void edit_perform_cmd(Edit *edit, Command *cmd) {
+void edit_perform_cmd(Edit *edit, CommandStack *stack, Command *cmd) {
+	edit->idx = cmd->idx;
+	_update_cursor_x(edit);
+
+	edit_goto(edit, cmd->line);
+
 	switch( cmd->type ) {
+	case CMD_REP_CH:
+		edit_replace_char(edit, stack, cmd->data.ch);
+		break;
 	case CMD_ADD_CH:
-		file_insert_char(&edit->file, cmd->line, cmd->idx, cmd->data.ch);
+		edit_insert_char(edit, stack, cmd->data.ch);
 		break;
 	case CMD_DEL_CH:
-		file_delete_char(&edit->file, cmd->line, cmd->idx);
+		edit_delete_char(edit, stack);
 		break;
 	default:
 		edit_set_status(edit, "not yet implemented!");
 	}
 
-	_update_cursor_x(edit);
 	edit_render(edit);
 }
 
@@ -500,29 +503,29 @@ void edit_goto(Edit *edit, size_t idx) {
 }
 
 /* Directly replaces the character under the cursor with @ch */
-void edit_replace_char(Edit *edit, char ch) {
+void edit_replace_char(Edit *edit, CommandStack *stack, char ch) {
 	char prev = file_replace_char(&edit->file, edit->line, edit->idx, ch);
 	++edit->idx;
 	_update_cursor_x(edit);
 
 	edit_render_current_line(edit);
 
-	edit_rep_ch(edit, prev);
+	edit_rep_ch(edit, stack, prev);
 }
 
 /* Inserts a character under the cursor */
-void edit_insert_char(Edit *edit, char ch) {
+void edit_insert_char(Edit *edit, CommandStack *stack, char ch) {
 	file_insert_char(&edit->file, edit->line, edit->idx, ch);
 	++edit->idx;
 	_update_cursor_x(edit);
 
 	edit_render_current_line(edit);
 
-	edit_del_ch(edit, ch);
+	edit_del_ch(edit, stack, ch);
 }
 
 /* Deletes the character under the cursor */
-void edit_delete_char(Edit *edit) {
+void edit_delete_char(Edit *edit, CommandStack *stack) {
 	/* If at the beginning of the line, append it to the previous and move the
 	 * lines below one row up
 	 */
@@ -541,7 +544,7 @@ void edit_delete_char(Edit *edit) {
 
 	edit_render_current_line(edit);
 
-	edit_add_ch(edit, prev);
+	edit_add_ch(edit, stack, prev);
 }
 
 /* If possible, moves the cursor up one row */

@@ -47,8 +47,6 @@ void cmd_del_ch(CommandStack *cmds, size_t line, size_t idx, char ch);
 void cmd_add_line(CommandStack *cmds, size_t line, size_t idx, Line l);
 void cmd_del_line(CommandStack *cmds, size_t line, size_t idx, Line l);
 
-Command cmd_invert(Command *cmd);
-
 void cmd_free_cmd(Command *cmd);
 
 #endif // !GUARD_EDIT_CMD_H_
