@@ -14,7 +14,11 @@
 #include <stdlib.h>
 #include <time.h>
 
+#ifdef USE_PDCURSES
+#include <curses.h>
+#else
 #include <ncurses.h>
+#endif
 
 #include "global.h"
 

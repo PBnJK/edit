@@ -20,14 +20,18 @@ add_executable(
 target_compile_features(edit PRIVATE c_std_99)
 target_compile_options(edit PRIVATE -Wall -Wextra -pedantic)
 
-find_package(Curses REQUIRED)
+target_include_directories(edit PRIVATE ${PROJECT_SOURCE_DIR}/inc)
 
-target_include_directories(
-	edit
-	PRIVATE
+if(WIN32 OR MSVC)
+	include(pdcurses.cmake)
+	target_link_libraries(edit PRIVATE PDCurses)
+else()
+	find_package(Curses REQUIRED)
+	target_include_directories(edit PRIVATE ${CURSES_INCLUDE_DIRS})
+	target_link_libraries(edit PRIVATE ${CURSES_LIBRARIES})
+endif()
 
-	${PROJECT_SOURCE_DIR}/inc
-	${CURSES_INCLUDE_DIRS}
-)
 
-target_link_libraries(edit PRIVATE ${CURSES_LIBRARIES})
+
+
+

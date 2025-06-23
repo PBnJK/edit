@@ -8,7 +8,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef USE_PDCURSES
+#include <curses.h>
+#else
 #include <ncurses.h>
+#endif
 
 #include "cmd.h"
 #include "global.h"
