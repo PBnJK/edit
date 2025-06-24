@@ -54,6 +54,9 @@ PromptOptResult prompt_opt_get(Prompt *prompt) {
 	case PROMPT_STR:
 		fprintf(stderr, "Use prompt_str_get instead\n");
 		exit(1);
+	default:
+		fprintf(stderr, "Unknown prompt type '%d'!\n", prompt->type);
+		exit(1);
 	}
 }
 
