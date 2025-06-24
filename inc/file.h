@@ -15,6 +15,9 @@ typedef struct _File {
 	Line *lines; /* Lines in the file */
 	size_t length; /* Number of lines in the line array */
 	size_t capacity; /* Maximum capacity of the line array */
+
+	bool unnamed;
+	bool dirty;
 } File;
 
 bool file_new(File *file, const char *filename);
@@ -26,6 +29,9 @@ bool file_save(File *file, const char *as);
 
 void file_render(File *file, size_t from, int gutter);
 void file_render_line(File *file, size_t idx, size_t from, int gutter);
+
+void file_mark_dirty(File *file);
+bool file_is_dirty(File *file);
 
 char file_replace_char(File *file, size_t line, size_t idx, char ch);
 void file_insert_char(File *file, size_t line, size_t idx, char ch);
@@ -47,5 +53,7 @@ void file_shift_lines_down(File *file, size_t idx);
 
 Line *file_get_line(File *file, size_t idx);
 long file_get_line_length(File *file, size_t idx);
+
+char *file_get_name(File *file);
 
 #endif // !GUARD_EDIT_FILE_H_

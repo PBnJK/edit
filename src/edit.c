@@ -2,6 +2,7 @@
  * The "edit" editor
  */
 
+#include "prompt.h"
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -97,10 +98,28 @@ void edit_free(Edit *edit) {
 	file_free(&edit->file);
 }
 
-/* Loads the given file
- * TODO: "Are you sure?" prompt if editing an unsaved file
- */
+/* Loads the given file */
 void edit_load(Edit *edit, const char *filename) {
+	if( file_is_dirty(&edit->file) ) {
+		Prompt prompt;
+		char *file = file_get_name(&edit->file);
+		prompt_init(
+			&prompt, PROMPT_YES_NO_CANCEL, "Save changes to '%s'?", file);
+
+		switch( prompt_opt_get(&prompt) ) {
+		case PROMPT_YES:
+			edit_save(edit);
+			break;
+		case PROMPT_NO:
+			break;
+		case PROMPT_CANCEL:
+			prompt_free(&prompt);
+			return;
+		}
+
+		prompt_free(&prompt);
+	}
+
 	file_free(&edit->file);
 
 	file_new(&edit->file, filename);
@@ -430,7 +449,7 @@ void edit_add_ch(Edit *edit, CommandStack *stack, char ch) {
 
 /* Creates a CMD_DEL_CH command */
 void edit_del_ch(Edit *edit, CommandStack *stack, char ch) {
-	cmd_del_ch(stack, edit->line, edit->idx + 1, ch);
+	cmd_del_ch(stack, edit->line, edit->idx, ch);
 }
 
 /* Creates a CMD_NEW_LINE command */
@@ -537,15 +556,15 @@ void edit_replace_char(Edit *edit, CommandStack *stack, char ch) {
 void edit_insert_char(Edit *edit, CommandStack *stack, char ch) {
 	if( ch == '\n' ) {
 		_newline(edit);
-		cmd_del_ch(stack, edit->line, edit->idx, ch);
 	} else {
 		file_insert_char(&edit->file, edit->line, edit->idx, ch);
 		++edit->idx;
 		_update_cursor_x(edit);
 
 		edit_render_current_line(edit);
-		edit_del_ch(edit, stack, ch);
 	}
+
+	edit_del_ch(edit, stack, ch);
 }
 
 /* Deletes the character under the cursor */
@@ -672,7 +691,8 @@ void edit_render_status(Edit *edit) {
 	printw("%s > ", _get_mode_string(edit));
 	printw("%zu %zu > ", edit->idx + 1, edit->line + 1);
 	printw("[%zu %zu] > ", edit->vx, edit->vy);
-	printw("%s", edit->file.name);
+	printw("%s %c", file_get_name(&edit->file),
+		file_is_dirty(&edit->file) ? '*' : ' ');
 
 	if( edit->msg_len ) {
 		move(bottom, edit->w - STATUS_MSG_LEN);
@@ -709,6 +729,7 @@ void edit_render_line(Edit *edit, size_t idx) {
 
 /* Quits the editor */
 void edit_quit(Edit *edit) {
+
 	edit_free(edit);
 	edit->running = false;
 }
@@ -773,7 +794,7 @@ static void _clear_command(Edit *edit) {
 #define MATCH_SIMPLE_CMD(C) if( strncmp(cmd, (C), len) == 0 )
 
 static void _handle_command(Edit *edit) {
-	char *cmd = line_get_c_str(&edit->cmd);
+	char *cmd = line_get_c_str(&edit->cmd, false);
 	const int len = strlen(cmd);
 
 	if( len == 0 ) {

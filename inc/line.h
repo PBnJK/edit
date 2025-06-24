@@ -37,7 +37,6 @@ void line_shift_chars_backwards(Line *line, size_t idx, size_t by);
 void line_clone(Line *from, Line *to, bool deep);
 
 void line_null_terminate(Line *line);
-
-char *line_get_c_str(Line *line);
+char *line_get_c_str(Line *line, bool clone);
 
 #endif // !GUARD_EDIT_LINE_H_

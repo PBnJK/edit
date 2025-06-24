@@ -57,8 +57,12 @@ bool file_load(File *file, const char *filename) {
 	if( filename == NULL ) {
 		memset(file->name, 0, MAX_FILE_NAME_SIZE);
 		_create_default_file(file);
+		file->unnamed = true;
+		file->dirty = false;
 		return true;
 	}
+
+	file->unnamed = false;
 
 	strncpy(file->name, filename, MAX_FILE_NAME_SIZE - 1);
 
@@ -70,6 +74,8 @@ bool file_load(File *file, const char *filename) {
 	}
 
 	file_insert_empty_line(file, 0);
+	file->dirty = false;
+
 	return true;
 }
 
@@ -158,17 +164,31 @@ void file_render_line(File *file, size_t idx, size_t from, int gutter) {
 	line_render(&file->lines[offset]);
 }
 
+/* Marks a file as "dirty" (modified) */
+void file_mark_dirty(File *file) {
+	file->dirty = true;
+}
+
+/* Returns if a file is "dirty" (modified) */
+bool file_is_dirty(File *file) {
+	return file->dirty;
+}
+
+/* Replaces a character in the file by @ch directly */
 char file_replace_char(File *file, size_t line, size_t idx, char ch) {
+	file_mark_dirty(file);
 	return line_replace_char(&file->lines[line], idx, ch);
 }
 
 /* Inserts a character into a line in the file */
 void file_insert_char(File *file, size_t line, size_t idx, char ch) {
+	file_mark_dirty(file);
 	line_insert_char(&file->lines[line], idx, ch);
 }
 
 /* Deletes a character from a line in the file */
 char file_delete_char(File *file, size_t line, size_t idx) {
+	file_mark_dirty(file);
 	return line_delete_char(&file->lines[line], idx);
 }
 
@@ -187,6 +207,8 @@ void file_insert_string(File *file, size_t idx, char *str) {
 void file_break_line(File *file, size_t line, size_t idx) {
 	Line new_line;
 	line_new(&new_line);
+
+	file_mark_dirty(file);
 
 	/* If we're at the beginning of the line, insert the empty line here */
 	if( idx == 0 ) {
@@ -233,9 +255,12 @@ void file_insert_line(File *file, size_t idx, Line *line) {
 	file_shift_lines_down(file, idx);
 	line_clone(line, &file->lines[idx], false);
 
+	file_mark_dirty(file);
+
 	++file->length;
 }
 
+/* Moves a line up, appending to the previous one if necessary */
 size_t file_move_line_up(File *file, size_t idx) {
 	if( idx == 0 ) {
 		return 0;
@@ -246,7 +271,7 @@ size_t file_move_line_up(File *file, size_t idx) {
 
 	if( prev_length > 0 ) {
 		Line *line = file_get_line(file, idx);
-		char *text = line_get_c_str(line);
+		char *text = line_get_c_str(line, false);
 
 		line_insert_str(prev, prev->length, text);
 		line_free(line);
@@ -266,6 +291,8 @@ void file_shift_lines_up(File *file, size_t idx) {
 		return;
 	}
 
+	file_mark_dirty(file);
+
 	size_t i;
 	for( i = idx; i < file->length; ++i ) {
 		file->lines[i - 1] = file->lines[i];
@@ -280,6 +307,8 @@ void file_shift_lines_down(File *file, size_t idx) {
 	if( file->length == 0 ) {
 		return;
 	}
+
+	file_mark_dirty(file);
 
 	if( _is_line_array_full(file) ) {
 		_grow_line_array(file);
@@ -311,6 +340,15 @@ long file_get_line_length(File *file, size_t idx) {
 	}
 
 	return -1;
+}
+
+/* Returns the name of the file */
+char *file_get_name(File *file) {
+	if( !file->unnamed && *file->name ) {
+		return file->name;
+	}
+
+	return "(unnamed)";
 }
 
 #ifndef __DATE__

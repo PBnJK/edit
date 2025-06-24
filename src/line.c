@@ -224,7 +224,18 @@ void line_null_terminate(Line *line) {
 }
 
 /* Returns the line text, ensuring it is NUL-terminated */
-char *line_get_c_str(Line *line) {
+char *line_get_c_str(Line *line, bool clone) {
+	if( line->length == 0 ) {
+		return NULL;
+	}
+
+	if( clone ) {
+		char *c_str = malloc(line->length + 1);
+		c_str[line->length] = '\0';
+
+		return c_str;
+	}
+
 	line_null_terminate(line);
 	return line->text;
 }

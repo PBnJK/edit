@@ -15,6 +15,7 @@ add_executable(
 	"src/file.c"
 	"src/line.c"
 	"src/cmd.c"
+	"src/prompt.c"
 )
 
 target_compile_features(edit PRIVATE c_std_99)
