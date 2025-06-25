@@ -19,8 +19,7 @@ Just `ncurses`!
 ## Building
 
 This project uses CMake for building. You can find many guides on how to use it
-on the internet, but here's the "resumo da ópera." I'm assuming you have CMake
-installed:
+on the internet, but here's the basic process:
 
 ```sh
 # Clone and enter the repo
@@ -34,11 +33,13 @@ cmake ..
 
 # You can add some extra options on the last step
 # I set it up like this usually:
-# cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+# cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Release ..
 
 # Make the project!
 make
 ```
+
+This "guide" assumes you have CMake already installed. If you don't...get on it.
 
 It may complain about `ncurses` being missing. Again, I trust you to be able to
 install it on your own...
@@ -46,7 +47,7 @@ install it on your own...
 ## Other Things
 
 This project was created for the [Summer of Making](https://summer.hackclub.com)
-event. Here's to that Framework laptop!
+event. Here's to that Framework laptop (or the DIY headphone!)
 
 The [ncurses](https://invisible-island.net/ncurses/) library is licensed under
 the MIT license.
@@ -63,6 +64,8 @@ This project was made without the help of LLMs. I think that is worth something
 these days.
 
 You can open a PR if you like. Please make it clear if you used an LLM to write
-it; I'll still look it over if you do...
+it; I'll still look it over if you do...I'd like if someone could get this to
+compile on windows. I don't really have a machine to test it, and I don't think
+it wise to use wine to test it in this case.
 
 Thanks! Love you! Kisses!

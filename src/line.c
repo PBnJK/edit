@@ -240,11 +240,13 @@ char *line_get_c_str(Line *line, bool clone) {
 	return line->text;
 }
 
+/* Grows the string size */
 static void _grow_string(Line *line) {
 	const size_t new_capacity = (line->capacity < 8 ? 8 : line->capacity * 2);
 	_grow_string_to(line, new_capacity);
 }
 
+/* Grows the string size to the given size */
 static void _grow_string_to(Line *line, size_t new_capacity) {
 	size_t size = sizeof(*line->text) * new_capacity;
 	line->text = realloc(line->text, size);
@@ -257,11 +259,14 @@ static void _grow_string_to(Line *line, size_t new_capacity) {
 	line->capacity = new_capacity;
 }
 
+/* Checks if the string is at capacity */
 static bool _is_string_full(Line *line) {
 	return line->length >= line->capacity - 1;
 }
 
-/* https://stackoverflow.com/a/12506181 */
+/* Returns the next power of two after @n
+ * https://stackoverflow.com/a/12506181
+ */
 static size_t _next_power_of_two(size_t n) {
 	size_t power = 1;
 	while( power < n ) {

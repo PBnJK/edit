@@ -38,8 +38,9 @@ typedef struct _Edit {
 
 	Mode mode; /* Current editor mode */
 
-	Line cmd; /* Normal mode command buffer */
-	size_t num_arg; /* Numerical argument to command */
+	Line cmd; /* Command mode buffer */
+	char cmd_char; /* Command char argument */
+	size_t cmd_num; /* Command numerical argument */
 
 	size_t vis_start_line; /* Starting line of selection */
 	size_t vis_start_idx; /* Starting index of selection */
@@ -47,6 +48,9 @@ typedef struct _Edit {
 
 	CommandStack undo; /* Undo stack */
 	CommandStack redo; /* Redo stack */
+
+	size_t last_ins_line; /* Line of the last insert */
+	size_t last_ins_idx; /* Character index of the last insert */
 } Edit;
 
 void edit_new(Edit *edit, const char *filename);
@@ -54,6 +58,7 @@ void edit_free(Edit *edit);
 
 void edit_load(Edit *edit, const char *filename);
 void edit_save(Edit *edit);
+void edit_save_as(Edit *edit, const char *as);
 
 void edit_update(Edit *edit);
 void edit_refresh(Edit *edit);
@@ -92,10 +97,10 @@ void edit_replace_char(Edit *edit, CommandStack *stack, char ch);
 void edit_insert_char(Edit *edit, CommandStack *stack, char ch);
 void edit_delete_char(Edit *edit, CommandStack *stack);
 
-void edit_move_up(Edit *edit);
-void edit_move_down(Edit *edit);
-void edit_move_left(Edit *edit);
-void edit_move_right(Edit *edit);
+bool edit_move_up(Edit *edit);
+bool edit_move_down(Edit *edit);
+bool edit_move_left(Edit *edit);
+bool edit_move_right(Edit *edit);
 
 void edit_set_status(Edit *edit, const char *fmt, ...);
 void edit_render_status(Edit *edit);

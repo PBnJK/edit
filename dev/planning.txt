@@ -1,4 +1,4 @@
-Basic structure:
+# Basic structure:
 
 Editor is
     file: File      Current file
@@ -7,10 +7,10 @@ Editor is
 	x, y: Integer   Current position of the cursor (global to file)
 
 File is
-    name    Array of 256 chars   File name
-    lines      Array of Line   Lines in the file
-	size       Integer         Number of lines in the line array
-	capacity   Integer         Maximum capacity of the line array
+    name       Array of 256 chars   File name
+    lines      Array of Line        Lines in the file
+	size       Integer              Number of lines in the line array
+	capacity   Integer              Maximum capacity of the line array
 
 Line is
 	text       Array of char   Characters in the line
@@ -45,3 +45,23 @@ Loading
 
 Quitting
 	edit_quit()   Quits the editor
+
+# Normal modes commands:
+
+Can be of the following forms:
+- <char>
+- <char><char>
+- <char><number><char>
+- <number><char>
+- <number><char><char>
+
+Flow:
+- edit_mode_normal:
+  - Get character
+    - Is a valid number?
+      Y - _get_number_argument, continue
+	  N - continue
+	- Is <command with arguments>?
+	  Y - _get_number_argument and/or _get_char_argument, <execute>
+	  N - continue
+	- (as is)

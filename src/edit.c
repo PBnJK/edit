@@ -4,6 +4,7 @@
 
 #include "prompt.h"
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +33,19 @@
 
 static void _write_raw(const char *str);
 
+static void _insert_char_pair(Edit *edit, CommandStack *stack, char l, char r);
+
+static char _get_number_arg(Edit *edit, size_t initial);
+static void _get_char_arg(Edit *edit);
+
+static void _do_cmd_h(Edit *edit);
+static void _do_cmd_j(Edit *edit);
+static void _do_cmd_k(Edit *edit);
+static void _do_cmd_l(Edit *edit);
+
+static void _do_cmd_g(Edit *edit);
+static void _do_cmd_G(Edit *edit);
+
 static void _exit_command_typing(Edit *edit);
 static void _render_command(Edit *edit);
 static void _clear_command(Edit *edit);
@@ -47,11 +61,14 @@ static void _update_cursor_x(Edit *edit);
 
 static void _move_to_start_of_line(Edit *edit);
 static void _move_to_end_of_line(Edit *edit);
+static void _move_to_idx(Edit *edit, size_t idx);
 
 static void _move_to_start_of_file(Edit *edit);
 static void _move_to_end_of_file(Edit *edit);
 
 static void _newline(Edit *edit);
+
+static bool _ask_to_save(Edit *edit);
 
 static char *_get_mode_string(Edit *edit);
 
@@ -76,7 +93,8 @@ void edit_new(Edit *edit, const char *filename) {
 	edit_change_to_normal(edit);
 
 	line_new(&edit->cmd);
-	edit->num_arg = 0;
+	edit->cmd_char = '\0';
+	edit->cmd_num = 0;
 
 	edit->vis_start_idx = 0;
 	edit->vis_start_line = 0;
@@ -100,24 +118,8 @@ void edit_free(Edit *edit) {
 
 /* Loads the given file */
 void edit_load(Edit *edit, const char *filename) {
-	if( file_is_dirty(&edit->file) ) {
-		Prompt prompt;
-		char *file = file_get_name(&edit->file);
-		prompt_init(
-			&prompt, PROMPT_YES_NO_CANCEL, "Save changes to '%s'?", file);
-
-		switch( prompt_opt_get(&prompt) ) {
-		case PROMPT_YES:
-			edit_save(edit);
-			break;
-		case PROMPT_NO:
-			break;
-		case PROMPT_CANCEL:
-			prompt_free(&prompt);
-			return;
-		}
-
-		prompt_free(&prompt);
+	if( file_is_dirty(&edit->file) && !_ask_to_save(edit) ) {
+		return;
 	}
 
 	file_free(&edit->file);
@@ -139,7 +141,12 @@ void edit_load(Edit *edit, const char *filename) {
 
 /* Saves the current file */
 void edit_save(Edit *edit) {
-	file_save(&edit->file, NULL);
+	edit_save_as(edit, NULL);
+}
+
+/* Saves the current file with the name @as */
+void edit_save_as(Edit *edit, const char *as) {
+	file_save(&edit->file, as);
 }
 
 /* Updates the editor */
@@ -222,6 +229,10 @@ void edit_change_to_command(Edit *edit) {
  * shortcuts to perform certain actions
  */
 void edit_mode_normal(Edit *edit, int ch) {
+	if( ch >= '0' && ch <= '9' ) {
+		ch = _get_number_arg(edit, ch - '0');
+	}
+
 	switch( ch ) {
 	case ':': /* Enter COMMAND mode */
 		edit_change_to_command(edit);
@@ -239,8 +250,11 @@ void edit_mode_normal(Edit *edit, int ch) {
 	case '$': /* Move to the end of the line */
 		_move_to_end_of_line(edit);
 		break;
-	case 'G': /* Move to the end of the file */
-		_move_to_end_of_file(edit);
+	case 'g': /* Handle the 'g' command */
+		_do_cmd_g(edit);
+		break;
+	case 'G': /* Handle the 'G' command */
+		_do_cmd_G(edit);
 		break;
 	case 'o': /* Enter INSERT mode on a new line */
 		_move_to_end_of_line(edit);
@@ -265,21 +279,24 @@ void edit_mode_normal(Edit *edit, int ch) {
 	case 'h':
 	case KEY_LEFT:
 	case KEY_BACKSPACE: /* Move left */
-		edit_move_left(edit);
+		_do_cmd_h(edit);
 		break;
 	case 'j':
 	case KEY_DOWN: /* Move down */
-		edit_move_down(edit);
+		_do_cmd_j(edit);
 		break;
 	case 'k':
 	case KEY_UP: /* Move up */
-		edit_move_up(edit);
+		_do_cmd_k(edit);
 		break;
 	case 'l':
 	case KEY_RIGHT: /* Move right */
-		edit_move_right(edit);
+		_do_cmd_l(edit);
 		break;
 	}
+
+	edit->cmd_char = '\0';
+	edit->cmd_num = 0;
 }
 
 /* Handles the INSERT mode
@@ -326,6 +343,21 @@ void edit_mode_insert(Edit *edit, int ch) {
 		break;
 	case KEY_BACKSPACE: /* Erase character */
 		edit_delete_char(edit, &edit->undo);
+		break;
+	case '\'': /* Inserts matching '' */
+		_insert_char_pair(edit, &edit->undo, '\'', '\'');
+		break;
+	case '"': /* Inserts matching "" */
+		_insert_char_pair(edit, &edit->undo, '"', '"');
+		break;
+	case '(': /* Inserts matching () */
+		_insert_char_pair(edit, &edit->undo, '(', ')');
+		break;
+	case '[': /* Inserts matching [] */
+		_insert_char_pair(edit, &edit->undo, '[', ']');
+		break;
+	case '{': /* Inserts matching {} */
+		_insert_char_pair(edit, &edit->undo, '{', '}');
 		break;
 	default: /* Type character */
 		edit_insert_char(edit, &edit->undo, ch);
@@ -381,7 +413,6 @@ void edit_mode_replace(Edit *edit, int ch) {
 }
 
 /* Handles the VISUAL mode
- *
  * This mode allows you to select text and perform commands on the selection
  */
 void edit_mode_visual(Edit *edit, int ch) {
@@ -549,6 +580,9 @@ void edit_replace_char(Edit *edit, CommandStack *stack, char ch) {
 
 	edit_render_current_line(edit);
 
+	edit->last_ins_line = edit->line;
+	edit->last_ins_idx = edit->idx;
+
 	edit_rep_ch(edit, stack, prev);
 }
 
@@ -563,6 +597,9 @@ void edit_insert_char(Edit *edit, CommandStack *stack, char ch) {
 
 		edit_render_current_line(edit);
 	}
+
+	edit->last_ins_line = edit->line;
+	edit->last_ins_idx = edit->idx;
 
 	edit_del_ch(edit, stack, ch);
 }
@@ -579,24 +616,26 @@ void edit_delete_char(Edit *edit, CommandStack *stack) {
 		edit_render(edit);
 
 		edit_new_line(edit, stack);
-		return;
+	} else {
+		char prev = file_delete_char(&edit->file, edit->line, edit->idx);
+
+		--edit->idx;
+		_update_cursor_x(edit);
+
+		edit_render_current_line(edit);
+
+		edit_add_ch(edit, stack, prev);
 	}
 
-	char prev = file_delete_char(&edit->file, edit->line, edit->idx);
-
-	--edit->idx;
-	_update_cursor_x(edit);
-
-	edit_render_current_line(edit);
-
-	edit_add_ch(edit, stack, prev);
+	edit->last_ins_line = edit->line;
+	edit->last_ins_idx = edit->idx;
 }
 
 /* If possible, moves the cursor up one row */
-void edit_move_up(Edit *edit) {
+bool edit_move_up(Edit *edit) {
 	if( edit->line <= 0 ) {
 		edit->line = 0;
-		return;
+		return false;
 	}
 
 	--edit->line;
@@ -610,16 +649,17 @@ void edit_move_up(Edit *edit) {
 	}
 
 	_update_cursor_x(edit);
-
 	refresh();
+
+	return true;
 }
 
 /* If possible, moves the cursor down one row */
-void edit_move_down(Edit *edit) {
+bool edit_move_down(Edit *edit) {
 	const size_t lines = edit->file.length;
 	if( edit->line >= lines - 1 ) {
 		edit->line = lines - 1;
-		return;
+		return false;
 	}
 
 	++edit->line;
@@ -632,34 +672,39 @@ void edit_move_down(Edit *edit) {
 	}
 
 	_update_cursor_x(edit);
-
 	refresh();
+
+	return true;
 }
 
 /* If possible, moves the cursor left one column */
-void edit_move_left(Edit *edit) {
+bool edit_move_left(Edit *edit) {
 	if( edit->idx <= 0 ) {
 		edit->idx = 0;
-		return;
+		return false;
 	}
 
 	--edit->idx;
 	_update_cursor_x(edit);
 
 	refresh();
+
+	return true;
 }
 
 /* If possible, moves the cursor right one column */
-void edit_move_right(Edit *edit) {
+bool edit_move_right(Edit *edit) {
 	if( edit->x >= edit->w - 1 ) {
 		edit->x = edit->w - 1;
-		return;
+		return false;
 	}
 
 	++edit->idx;
 	_update_cursor_x(edit);
 
 	refresh();
+
+	return true;
 }
 
 /* Sets the status message */
@@ -690,7 +735,6 @@ void edit_render_status(Edit *edit) {
 
 	printw("%s > ", _get_mode_string(edit));
 	printw("%zu %zu > ", edit->idx + 1, edit->line + 1);
-	printw("[%zu %zu] > ", edit->vx, edit->vy);
 	printw("%s %c", file_get_name(&edit->file),
 		file_is_dirty(&edit->file) ? '*' : ' ');
 
@@ -754,21 +798,106 @@ long edit_get_line_length(Edit *edit, size_t idx) {
 	return file_get_line_length(&edit->file, idx);
 }
 
+/* Gets the screen size without the bottom UI */
 size_t edit_get_ui_offset(Edit *edit) {
 	return edit->h - 3;
 }
 
+/* Writes a raw string to standard output */
 static void _write_raw(const char *str) {
 	fputs(str, stdout);
 	fflush(stdout);
 }
 
+/* Inserts a matching pair of characters, placing the cursor between them */
+static void _insert_char_pair(Edit *edit, CommandStack *stack, char l, char r) {
+	edit_insert_char(edit, stack, l);
+	edit_insert_char(edit, stack, r);
+	edit_move_left(edit);
+}
+
+/* Gets a number argument from the user */
+static char _get_number_arg(Edit *edit, size_t initial) {
+	int ch = getch();
+	while( ch >= '0' && ch <= '9' ) {
+		initial *= 10;
+		initial += ch - '0';
+		ch = getch();
+	}
+
+	edit->cmd_num = initial;
+	return ch;
+}
+
+/* Gets a character from the user */
+static void _get_char_arg(Edit *edit) {
+	edit->cmd_char = getch();
+}
+
+/* Handles the "move left" command */
+static void _do_cmd_h(Edit *edit) {
+	size_t by = (edit->cmd_num ? edit->cmd_num : 1);
+	for( size_t i = 0; i < by && edit_move_left(edit); ++i )
+		;
+}
+
+/* Handles the "move down" command */
+static void _do_cmd_j(Edit *edit) {
+	size_t by = (edit->cmd_num ? edit->cmd_num : 1);
+	for( size_t i = 0; i < by && edit_move_down(edit); ++i )
+		;
+}
+
+/* Handles the "move up" command */
+static void _do_cmd_k(Edit *edit) {
+	size_t by = (edit->cmd_num ? edit->cmd_num : 1);
+	for( size_t i = 0; i < by && edit_move_up(edit); ++i )
+		;
+}
+
+/* Handles the "move right" command */
+static void _do_cmd_l(Edit *edit) {
+	size_t by = (edit->cmd_num ? edit->cmd_num : 1);
+	for( size_t i = 0; i < by && edit_move_right(edit); ++i )
+		;
+}
+
+/* Handles the 'g' command */
+static void _do_cmd_g(Edit *edit) {
+	_get_char_arg(edit);
+
+	switch( edit->cmd_char ) {
+	case 'i': /* Go to last insert */
+		edit_goto(edit, edit->last_ins_line);
+		_move_to_idx(edit, edit->last_ins_idx);
+		edit_change_to_insert(edit);
+		break;
+	case 'g': /* Go to the start of the file */
+		_move_to_start_of_file(edit);
+		break;
+	}
+}
+
+/* Handles the 'G' command */
+static void _do_cmd_G(Edit *edit) {
+	if( edit->cmd_num ) {
+		edit_goto(edit, edit->cmd_num - 1);
+	} else {
+		_move_to_end_of_file(edit);
+	}
+}
+
+/* Exits the command typing mode */
 static void _exit_command_typing(Edit *edit) {
 	line_erase(&edit->cmd);
 	_clear_command(edit);
-	edit->mode = EDIT_MODE_NORMAL;
+
+	edit->cmd_num = 0;
+
+	edit_change_to_normal(edit);
 }
 
+/* Renders the current command */
 static void _render_command(Edit *edit) {
 	const size_t y = edit->h - 2;
 
@@ -781,6 +910,7 @@ static void _render_command(Edit *edit) {
 	refresh();
 }
 
+/* Clears the command line */
 static void _clear_command(Edit *edit) {
 	const size_t y = edit->h - 2;
 
@@ -793,6 +923,7 @@ static void _clear_command(Edit *edit) {
 
 #define MATCH_SIMPLE_CMD(C) if( strncmp(cmd, (C), len) == 0 )
 
+/* Handles an entered command */
 static void _handle_command(Edit *edit) {
 	char *cmd = line_get_c_str(&edit->cmd, false);
 	const int len = strlen(cmd);
@@ -811,7 +942,7 @@ static void _handle_command(Edit *edit) {
 		/* If the command hasn't ended yet, assume this is a command with a
 		 * numerical argument
 		 */
-		edit->num_arg = n;
+		edit->cmd_num = n;
 		if( *cmd ) {
 			_handle_complex_command(edit, cmd);
 		}
@@ -851,6 +982,9 @@ static void _handle_command(Edit *edit) {
 
 #undef MATCH_SIMPLE_CMD
 
+/* Executes a shell command
+ * TODO: Capture output
+ */
 static void _handle_shell_command(Edit *edit, const char *cmd) {
 	int err = system(cmd);
 	edit_set_status(edit, "system call returned %d", err);
@@ -858,6 +992,7 @@ static void _handle_shell_command(Edit *edit, const char *cmd) {
 
 #define MATCH_CMD(C) if( (args = _match_command(cmd, (C), strlen((C)))) )
 
+/* Handles more complex commands */
 static void _handle_complex_command(Edit *edit, const char *cmd) {
 	char *args;
 
@@ -866,11 +1001,17 @@ static void _handle_complex_command(Edit *edit, const char *cmd) {
 		return;
 	}
 
+	MATCH_CMD("w ") {
+		edit_save_as(edit, args);
+		return;
+	}
+
 	edit_set_status(edit, "unknown command '%s'", cmd);
 }
 
 #undef MATCH_CMD
 
+/* Matches a command string, returning the string after the command */
 static char *_match_command(const char *cmd, const char *match, int len) {
 	while( len-- && *cmd ) {
 		if( *cmd++ != *match++ ) {
@@ -881,6 +1022,7 @@ static char *_match_command(const char *cmd, const char *match, int len) {
 	return (char *)cmd;
 }
 
+/* Updates the gutter size */
 static void _update_gutter(Edit *edit) {
 	size_t line_count = edit->file.length;
 
@@ -891,6 +1033,7 @@ static void _update_gutter(Edit *edit) {
 	} while( line_count != 0 );
 }
 
+/* Validates the cursor position */
 static void _update_cursor_x(Edit *edit) {
 	long s_length = edit_get_current_line_length(edit);
 	if( s_length == -1 ) {
@@ -910,27 +1053,57 @@ static void _update_cursor_x(Edit *edit) {
 	refresh();
 }
 
+/* Moves the cursor to the start of the line */
 static void _move_to_start_of_line(Edit *edit) {
-	edit->idx = 0;
-	_update_cursor_x(edit);
+	_move_to_idx(edit, 0);
 }
 
+/* Moves the cursor to the end of the line */
 static void _move_to_end_of_line(Edit *edit) {
 	Line *line = edit_get_current_line(edit);
-	edit->idx = line->length;
+	_move_to_idx(edit, line->length);
+}
+
+/* Moves the cursor to a given index in the line */
+static void _move_to_idx(Edit *edit, size_t idx) {
+	edit->idx = idx;
 	_update_cursor_x(edit);
 }
 
+/* Moves the cursor to the start of the file */
 static void _move_to_start_of_file(Edit *edit) {
 	edit_goto(edit, 0);
 	_move_to_start_of_line(edit);
 }
 
+/* Moves the cursor to the end of the file */
 static void _move_to_end_of_file(Edit *edit) {
 	edit_goto(edit, edit->file.length - 1);
 	_move_to_start_of_line(edit);
 }
 
+/* Prompts the user to save the file */
+static bool _ask_to_save(Edit *edit) {
+	Prompt prompt;
+	char *file = file_get_name(&edit->file);
+	prompt_init(&prompt, PROMPT_YES_NO_CANCEL, "Save changes to '%s'?", file);
+
+	switch( prompt_opt_get(&prompt) ) {
+	case PROMPT_YES:
+		edit_save(edit);
+		break;
+	case PROMPT_NO:
+		break;
+	case PROMPT_CANCEL:
+		prompt_free(&prompt);
+		return false;
+	}
+
+	prompt_free(&prompt);
+	return true;
+}
+
+/* Adds a newline in the text */
 static void _newline(Edit *edit) {
 	file_break_line(&edit->file, edit->line++, edit->idx);
 	++edit->y;
@@ -943,6 +1116,7 @@ static void _newline(Edit *edit) {
 	edit_render(edit);
 }
 
+/* Returns a string representing the current mode */
 static char *_get_mode_string(Edit *edit) {
 	switch( edit->mode ) {
 	case EDIT_MODE_NORMAL:
@@ -956,7 +1130,7 @@ static char *_get_mode_string(Edit *edit) {
 	case EDIT_MODE_REPLACE:
 		return "REPLACE";
 	default:
-		fprintf(stderr, "Invalid mode no. %d!\n", edit->mode);
+		fprintf(stderr, "Invalid mode no. '%d'!\n", edit->mode);
 		exit(1);
 	}
 }

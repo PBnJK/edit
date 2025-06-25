@@ -26,6 +26,7 @@ static void _prompt_center_msg(Prompt *prompt, const char *msg);
 static PromptOptResult _yes_no(void);
 static PromptOptResult _yes_no_cancel(void);
 
+/* Initializes a prompt */
 void prompt_init(Prompt *prompt, PromptType type, const char *msg, ...) {
 	va_list args;
 	va_start(args, msg);
@@ -45,6 +46,7 @@ void prompt_init(Prompt *prompt, PromptType type, const char *msg, ...) {
 	}
 }
 
+/* Gets an option prompt */
 PromptOptResult prompt_opt_get(Prompt *prompt) {
 	switch( prompt->type ) {
 	case PROMPT_YES_NO:
@@ -60,6 +62,7 @@ PromptOptResult prompt_opt_get(Prompt *prompt) {
 	}
 }
 
+/* Gets a string prompt */
 char *prompt_str_get(Prompt *prompt) {
 	Line line;
 	line_new(&line);
@@ -82,6 +85,7 @@ char *prompt_str_get(Prompt *prompt) {
 	return c_str;
 }
 
+/* Deletes a prompt */
 void prompt_free(Prompt *prompt) {
 	wborder(prompt->win, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
 	werase(prompt->win);
@@ -92,6 +96,7 @@ void prompt_free(Prompt *prompt) {
 
 #define MAX_PROMPT_LEN (64)
 
+/* Initializes a prompt */
 static void _init_prompt(Prompt *prompt, const char *fmt, va_list args) {
 	char msg[MAX_PROMPT_LEN];
 	vsnprintf(msg, MAX_PROMPT_LEN, fmt, args);
@@ -114,6 +119,7 @@ static void _init_prompt(Prompt *prompt, const char *fmt, va_list args) {
 	prompt->h = h;
 }
 
+/* Centers a message inside a prompt */
 static void _prompt_center_msg(Prompt *prompt, const char *msg) {
 	int msg_len = strlen(msg);
 
@@ -121,6 +127,7 @@ static void _prompt_center_msg(Prompt *prompt, const char *msg) {
 	wrefresh(prompt->win);
 }
 
+/* Gets a Y/N response */
 static PromptOptResult _yes_no(void) {
 	while( true ) {
 		switch( getch() ) {
@@ -134,6 +141,7 @@ static PromptOptResult _yes_no(void) {
 	}
 }
 
+/* Gets a Y/N/C response */
 static PromptOptResult _yes_no_cancel(void) {
 	while( true ) {
 		switch( getch() ) {

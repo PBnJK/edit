@@ -113,6 +113,7 @@ void cmd_free_cmd(Command *cmd) {
 	}
 }
 
+/* Shifts a command stack down, overwriting the first command */
 static void _shift_down(CommandStack *cmds) {
 	cmd_free_cmd(&cmds->cmds[0]);
 	for( size_t i = 1; i < cmds->length; ++i ) {

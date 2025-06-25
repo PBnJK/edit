@@ -367,6 +367,7 @@ static char *DEFAULT_FILE[] = {
 	__DATE__,
 };
 
+/* Creates the default file */
 static void _create_default_file(File *file) {
 	const size_t LEN = (sizeof(DEFAULT_FILE) / sizeof(*DEFAULT_FILE));
 	for( size_t i = 0; i < LEN; ++i ) {
@@ -374,11 +375,13 @@ static void _create_default_file(File *file) {
 	}
 }
 
+/* Grows the array of lines */
 static void _grow_line_array(File *file) {
 	const size_t new_capacity = (file->capacity < 4 ? 4 : file->capacity * 2);
 	_grow_line_array_to(file, new_capacity);
 }
 
+/* Grows the array of lines to the given size */
 static void _grow_line_array_to(File *file, size_t new_capacity) {
 	size_t size = sizeof(*file->lines) * new_capacity;
 	Line *new_lines = realloc(file->lines, size);
@@ -391,6 +394,7 @@ static void _grow_line_array_to(File *file, size_t new_capacity) {
 	file->capacity = new_capacity;
 }
 
+/* Checks if the array of lines is full */
 static bool _is_line_array_full(File *file) {
 	return file->length >= file->capacity;
 }
