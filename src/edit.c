@@ -155,8 +155,10 @@ void edit_save(Edit *edit) {
 
 /* Saves the current file with the name @as */
 void edit_save_as(Edit *edit, const char *as) {
-	edit_set_status(edit, "saved file as '%s'", as);
 	file_save(&edit->file, as);
+
+	char *name = file_get_display_name(&edit->file);
+	edit_set_status(edit, "saved file as '%s'", name);
 }
 
 /* Updates the editor */
@@ -353,9 +355,6 @@ void edit_mode_insert(Edit *edit, int ch) {
 		break;
 	case KEY_BACKSPACE: /* Erase character */
 		edit_delete_char(edit, &edit->undo);
-		break;
-	case '\'': /* Inserts matching '' */
-		_insert_char_pair(edit, &edit->undo, '\'', '\'');
 		break;
 	case '"': /* Inserts matching "" */
 		_insert_char_pair(edit, &edit->undo, '"', '"');

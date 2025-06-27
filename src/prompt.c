@@ -3,6 +3,7 @@
  */
 
 #include "line.h"
+#include <stddef.h>
 #ifdef USE_PDCURSES
 #include <curses.h>
 #else
@@ -18,6 +19,8 @@
 #include "global.h"
 
 #include "prompt.h"
+
+#define MAX_PROMPT_LEN (64)
 
 static void _init_prompt(Prompt *prompt, const char *fmt, va_list args);
 
@@ -44,6 +47,8 @@ void prompt_init(Prompt *prompt, PromptType type, const char *msg, ...) {
 		curs_set(0);
 		break;
 	case PROMPT_STR:
+		wmove(prompt->win, 3, 1);
+		wrefresh(prompt->win);
 		break;
 	}
 }
@@ -73,12 +78,22 @@ char *prompt_str_get(Prompt *prompt) {
 	while( (ch = getch()) != '\n' ) {
 		if( ch == KEY_BACKSPACE ) {
 			line_delete_char_at_end(&line);
-		} else if( ch >= 32 && ch <= 126 ) {
-			line_insert_char_at_end(&line, ch);
+
+			wmove(prompt->win, 3, 1);
+			wclrtoeol(prompt->win);
+			box(prompt->win, 0, 0);
+
+			waddnstr(prompt->win, line.text, line.length);
+			wrefresh(prompt->win);
+			continue;
 		}
 
-		mvwaddnstr(prompt->win, 3, 1, line.text, line.length);
-		wrefresh(prompt->win);
+		size_t remaining_chars = line.length - (prompt->w - 4);
+		if( remaining_chars > 0 && ch >= 32 && ch <= 126 ) {
+			line_insert_char_at_end(&line, ch);
+			mvwaddnstr(prompt->win, 3, 1, line.text, line.length);
+			wrefresh(prompt->win);
+		}
 	}
 
 	char *c_str = line_get_c_str(&line, true);
@@ -98,8 +113,6 @@ void prompt_free(Prompt *prompt) {
 
 	prompt->win = NULL;
 }
-
-#define MAX_PROMPT_LEN (64)
 
 /* Initializes a prompt */
 static void _init_prompt(Prompt *prompt, const char *fmt, va_list args) {

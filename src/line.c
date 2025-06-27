@@ -231,6 +231,8 @@ char *line_get_c_str(Line *line, bool clone) {
 
 	if( clone ) {
 		char *c_str = malloc(line->length + 1);
+		strncpy(c_str, line->text, line->length);
+
 		c_str[line->length] = '\0';
 
 		return c_str;
