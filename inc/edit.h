@@ -56,7 +56,9 @@ typedef struct _Edit {
 void edit_new(Edit *edit, const char *filename);
 void edit_free(Edit *edit);
 
+void edit_reload(Edit *edit);
 void edit_load(Edit *edit, const char *filename);
+
 void edit_save(Edit *edit);
 void edit_save_as(Edit *edit, const char *as);
 

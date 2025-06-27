@@ -55,5 +55,6 @@ Line *file_get_line(File *file, size_t idx);
 long file_get_line_length(File *file, size_t idx);
 
 char *file_get_name(File *file);
+char *file_get_display_name(File *file);
 
 #endif // !GUARD_EDIT_FILE_H_

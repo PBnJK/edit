@@ -37,9 +37,11 @@ void prompt_init(Prompt *prompt, PromptType type, const char *msg, ...) {
 	switch( type ) {
 	case PROMPT_YES_NO:
 		_prompt_center_msg(prompt, "(Y)es / (N)o");
+		curs_set(0);
 		break;
 	case PROMPT_YES_NO_CANCEL:
 		_prompt_center_msg(prompt, "(Y)es / (N)o / (C)ancel");
+		curs_set(0);
 		break;
 	case PROMPT_STR:
 		break;
@@ -91,6 +93,9 @@ void prompt_free(Prompt *prompt) {
 	werase(prompt->win);
 	wrefresh(prompt->win);
 	delwin(prompt->win);
+
+	curs_set(1);
+
 	prompt->win = NULL;
 }
 

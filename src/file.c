@@ -2,6 +2,7 @@
  * File handling utilities
  */
 
+#include "prompt.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -18,12 +19,16 @@
 
 #include "file.h"
 
+#define DEFAULT_FILE_NAME "unnamed"
+
 static void _create_default_file(File *file);
 
 static void _grow_line_array(File *file);
 static void _grow_line_array_to(File *file, size_t new_capacity);
 
 static bool _is_line_array_full(File *file);
+
+static char *_ask_to_name(void);
 
 /* Creates a new file */
 bool file_new(File *file, const char *filename) {
@@ -47,9 +52,13 @@ void file_free(File *file) {
 
 	file->length = 0;
 	file->capacity = 0;
+
+	file->dirty = false;
+	file->unnamed = false;
 }
 
 /* Tries to load a file
+ *
  * If it exists, loads its contents
  * Otherwise, "creates" a new empty file
  */
@@ -124,6 +133,15 @@ bool file_load_from_fp(File *file, FILE *fp) {
 bool file_save(File *file, const char *as) {
 	if( as ) {
 		strncpy(file->name, as, MAX_FILE_NAME_SIZE - 1);
+	} else if( file->unnamed ) {
+		file->unnamed = false;
+
+		char *new_name = _ask_to_name();
+		if( !new_name ) {
+			new_name = "unnamed";
+		}
+
+		strncpy(file->name, new_name, strlen(new_name));
 	}
 
 	FILE *fp = fopen(file->name, "w");
@@ -131,6 +149,7 @@ bool file_save(File *file, const char *as) {
 		return false;
 	}
 
+	/* Saves the lines to a file */
 	for( size_t i = 0; i < file->length; ++i ) {
 		Line *line = file_get_line(file, i);
 		fwrite(line->text, sizeof(*line->text), line->length, fp);
@@ -138,6 +157,8 @@ bool file_save(File *file, const char *as) {
 	}
 
 	fclose(fp);
+
+	file->dirty = false;
 
 	return true;
 }
@@ -348,7 +369,13 @@ char *file_get_name(File *file) {
 		return file->name;
 	}
 
-	return "(unnamed)";
+	return NULL;
+}
+
+/* Returns the display safe name of the file */
+char *file_get_display_name(File *file) {
+	char *name = file_get_name(file);
+	return (name ? name : "(unnamed)");
 }
 
 #ifndef __DATE__
@@ -397,4 +424,13 @@ static void _grow_line_array_to(File *file, size_t new_capacity) {
 /* Checks if the array of lines is full */
 static bool _is_line_array_full(File *file) {
 	return file->length >= file->capacity;
+}
+
+/* Asks the user to give a file name */
+static char *_ask_to_name(void) {
+	Prompt prompt;
+	prompt_init(&prompt, PROMPT_STR,
+		"Name the file (default '" DEFAULT_FILE_NAME "'):");
+
+	return prompt_str_get(&prompt);
 }

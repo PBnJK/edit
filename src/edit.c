@@ -116,6 +116,12 @@ void edit_free(Edit *edit) {
 	file_free(&edit->file);
 }
 
+/* Reloads the current file */
+void edit_reload(Edit *edit) {
+	char *name = file_get_name(&edit->file);
+	edit_load(edit, name);
+}
+
 /* Loads the given file */
 void edit_load(Edit *edit, const char *filename) {
 	if( file_is_dirty(&edit->file) && !_ask_to_save(edit) ) {
@@ -123,8 +129,11 @@ void edit_load(Edit *edit, const char *filename) {
 	}
 
 	file_free(&edit->file);
-
 	file_new(&edit->file, filename);
+
+	char *name = file_get_display_name(&edit->file);
+	edit_set_status(edit, "loaded file '%s'", name);
+
 	edit_render(edit);
 	edit_render_status(edit);
 
@@ -146,6 +155,7 @@ void edit_save(Edit *edit) {
 
 /* Saves the current file with the name @as */
 void edit_save_as(Edit *edit, const char *as) {
+	edit_set_status(edit, "saved file as '%s'", as);
 	file_save(&edit->file, as);
 }
 
@@ -735,8 +745,10 @@ void edit_render_status(Edit *edit) {
 
 	printw("%s > ", _get_mode_string(edit));
 	printw("%zu %zu > ", edit->idx + 1, edit->line + 1);
-	printw("%s %c", file_get_name(&edit->file),
-		file_is_dirty(&edit->file) ? '*' : ' ');
+
+	const char *name = file_get_display_name(&edit->file);
+	const char asterisk = file_is_dirty(&edit->file) ? '*' : ' ';
+	printw("%s %c", name, asterisk);
 
 	if( edit->msg_len ) {
 		move(bottom, edit->w - STATUS_MSG_LEN);
@@ -773,6 +785,9 @@ void edit_render_line(Edit *edit, size_t idx) {
 
 /* Quits the editor */
 void edit_quit(Edit *edit) {
+	if( file_is_dirty(&edit->file) && !_ask_to_save(edit) ) {
+		return;
+	}
 
 	edit_free(edit);
 	edit->running = false;
@@ -956,16 +971,25 @@ static void _handle_command(Edit *edit) {
 		return;
 	}
 
+	/* Reload the current file */
+	MATCH_SIMPLE_CMD("e") {
+		edit_reload(edit);
+		return;
+	}
+
+	/* Write to file */
 	MATCH_SIMPLE_CMD("w") {
 		edit_save(edit);
 		return;
 	}
 
+	/* Quit the editor */
 	MATCH_SIMPLE_CMD("q") {
 		edit_quit(edit);
 		return;
 	}
 
+	/* Write to file and quit the editor*/
 	MATCH_SIMPLE_CMD("wq") {
 		edit_save(edit);
 		edit_quit(edit);
@@ -996,11 +1020,13 @@ static void _handle_shell_command(Edit *edit, const char *cmd) {
 static void _handle_complex_command(Edit *edit, const char *cmd) {
 	char *args;
 
+	/* Load or create a file with the given name */
 	MATCH_CMD("e ") {
 		edit_load(edit, args);
 		return;
 	}
 
+	/* Writes the current file with a new name */
 	MATCH_CMD("w ") {
 		edit_save_as(edit, args);
 		return;
@@ -1085,7 +1111,7 @@ static void _move_to_end_of_file(Edit *edit) {
 /* Prompts the user to save the file */
 static bool _ask_to_save(Edit *edit) {
 	Prompt prompt;
-	char *file = file_get_name(&edit->file);
+	char *file = file_get_display_name(&edit->file);
 	prompt_init(&prompt, PROMPT_YES_NO_CANCEL, "Save changes to '%s'?", file);
 
 	switch( prompt_opt_get(&prompt) ) {
