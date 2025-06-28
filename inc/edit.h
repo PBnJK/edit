@@ -5,9 +5,10 @@
 #include <stddef.h>
 #include <stdio.h>
 
-#include "cmd.h"
 #include "file.h"
 #include "line.h"
+#include "cmd.h"
+#include "config.h"
 
 #define STATUS_MSG_LEN (60)
 
@@ -35,6 +36,8 @@ typedef struct _Edit {
 	int msg_len; /* Cached status message length */
 
 	bool running;
+
+	Config config; /* Configuration */
 
 	Mode mode; /* Current editor mode */
 
@@ -113,7 +116,8 @@ void edit_render_line(Edit *edit, size_t idx);
 
 void edit_quit(Edit *edit);
 
-void edit_save_file(Edit *edit);
+void edit_set_config(Edit *edit, char *key, char *value);
+char *edit_get_config(Edit *edit, char *key);
 
 Line *edit_get_current_line(Edit *edit);
 Line *edit_get_line(Edit *edit, size_t idx);

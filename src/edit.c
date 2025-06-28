@@ -2,7 +2,6 @@
  * The "edit" editor
  */
 
-#include "prompt.h"
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -16,11 +15,13 @@
 #include <ncurses.h>
 #endif
 
-#include "cmd.h"
 #include "global.h"
 
 #include "file.h"
 #include "line.h"
+#include "cmd.h"
+#include "prompt.h"
+#include "config.h"
 
 #include "edit.h"
 
@@ -89,6 +90,8 @@ void edit_new(Edit *edit, const char *filename) {
 	edit->msg_len = 0;
 
 	edit->running = true;
+
+	config_init(&edit->config);
 
 	edit_change_to_normal(edit);
 
@@ -782,6 +785,16 @@ void edit_render_line(Edit *edit, size_t idx) {
 	file_render_line(&edit->file, idx, edit->vy, edit->gutter);
 }
 
+/* Sets a config option */
+void edit_set_config(Edit *edit, char *key, char *value) {
+	config_set(&edit->config, key, value);
+}
+
+/* Gets a config option */
+char *edit_get_config(Edit *edit, char *key) {
+	return config_get(&edit->config, key);
+}
+
 /* Quits the editor */
 void edit_quit(Edit *edit) {
 	if( file_is_dirty(&edit->file) && !_ask_to_save(edit) ) {
@@ -935,7 +948,7 @@ static void _clear_command(Edit *edit) {
 	refresh();
 }
 
-#define MATCH_SIMPLE_CMD(C) if( strncmp(cmd, (C), len) == 0 )
+#define MATCH_SIMPLE_CMD(C) (strncmp(cmd, (C), len) == 0)
 
 /* Handles an entered command */
 static void _handle_command(Edit *edit) {
@@ -971,25 +984,25 @@ static void _handle_command(Edit *edit) {
 	}
 
 	/* Reload the current file */
-	MATCH_SIMPLE_CMD("e") {
+	if MATCH_SIMPLE_CMD( "e" ) {
 		edit_reload(edit);
 		return;
 	}
 
 	/* Write to file */
-	MATCH_SIMPLE_CMD("w") {
+	if MATCH_SIMPLE_CMD( "w" ) {
 		edit_save(edit);
 		return;
 	}
 
 	/* Quit the editor */
-	MATCH_SIMPLE_CMD("q") {
+	if MATCH_SIMPLE_CMD( "q" ) {
 		edit_quit(edit);
 		return;
 	}
 
 	/* Write to file and quit the editor*/
-	MATCH_SIMPLE_CMD("wq") {
+	if MATCH_SIMPLE_CMD( "wq" ) {
 		edit_save(edit);
 		edit_quit(edit);
 		return;
@@ -1013,21 +1026,47 @@ static void _handle_shell_command(Edit *edit, const char *cmd) {
 	edit_set_status(edit, "system call returned %d", err);
 }
 
-#define MATCH_CMD(C) if( (args = _match_command(cmd, (C), strlen((C)))) )
+#define MATCH_CMD(C) ((args = _match_command(cmd, (C), strlen((C)))))
 
 /* Handles more complex commands */
 static void _handle_complex_command(Edit *edit, const char *cmd) {
 	char *args;
 
 	/* Load or create a file with the given name */
-	MATCH_CMD("e ") {
+	if MATCH_CMD( "e " ) {
 		edit_load(edit, args);
 		return;
 	}
 
 	/* Writes the current file with a new name */
-	MATCH_CMD("w ") {
+	if MATCH_CMD( "w " ) {
 		edit_save_as(edit, args);
+		return;
+	}
+
+	/* Sets a config option */
+	if( MATCH_CMD("setc ") || MATCH_CMD("setconfig ") ) {
+		char *key = args;
+		char *value = NULL;
+
+		char *sp = strchr(args, ' ');
+		if( sp == NULL || sp[1] == '\0' ) {
+			edit_set_status(edit, "config needs a value");
+			return;
+		}
+
+		*sp = '\0';
+		value = sp + 1;
+
+		edit_set_config(edit, key, value);
+		edit_set_status(edit, "'%s' = '%s'", key, value);
+		return;
+	}
+
+	/* Gets (prints) a config option */
+	if( MATCH_CMD("getc ") || MATCH_CMD("getconfig ") ) {
+		char *value = edit_get_config(edit, args);
+		edit_set_status(edit, "'%s' = '%s'", args, value ? value : "(unset)");
 		return;
 	}
 

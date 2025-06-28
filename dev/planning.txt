@@ -48,15 +48,15 @@ Quitting
 
 # Normal modes commands:
 
-Can be of the following forms:
+Can be of the following forms
 - <char>
 - <char><char>
 - <char><number><char>
 - <number><char>
 - <number><char><char>
 
-Flow:
-- edit_mode_normal:
+Flow
+- edit_mode_normal
   - Get character
     - Is a valid number?
       Y - _get_number_argument, continue
@@ -65,3 +65,21 @@ Flow:
 	  Y - _get_number_argument and/or _get_char_argument, <execute>
 	  N - continue
 	- (as is)
+
+# Configuration map
+
+Inserting
+- config_insert
+	- Find index
+		- Is entry NULL?
+		  Y - Create new entry, insert data, return TRUE
+		  N - continue
+		- Loop
+			- Does entry match key?
+			  Y - Replace data, return FALSE
+			  N - continue
+			- Is next NULL?
+			  Y - Create new entry, insert data, place into next, return TRUE
+			  N - Move to next entry, continue
+	
+
