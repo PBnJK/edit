@@ -1059,7 +1059,7 @@ static void _handle_complex_command(Edit *edit, const char *cmd) {
 		value = sp + 1;
 
 		edit_set_config(edit, key, value);
-		edit_set_status(edit, "'%s' = '%s'", key, value);
+		edit_set_status(edit, "'%s' '%s' = '%s'", args, key, value);
 		return;
 	}
 

@@ -55,16 +55,16 @@ void line_zero(Line *line) {
  * Will resize its buffer
  */
 void line_erase(Line *line) {
-	size_t size = sizeof(*line->text) * 8;
-	line->text = realloc(line->text, size);
-	if( !line->text ) {
-		fprintf(stderr, "Failed to reallocate %zu bytes text buffer!\n", size);
-		exit(1);
-	}
+	memset(line->text, 0, line->capacity);
 
 	line->capacity = 8;
 	line->length = 0;
-	memset(line->text, '\0', sizeof(*line->text) * line->capacity);
+	line->text = realloc(line->text, line->capacity);
+	if( line->text == NULL ) {
+		fprintf(stderr, "Failed to reallocate %zu bytes text buffer!\n",
+			line->capacity);
+		exit(1);
+	}
 }
 
 /* Renders the line's contents */
