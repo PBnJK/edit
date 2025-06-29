@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	edit_new(&edit, initial);
+	edit_init(&edit, initial);
 	while( edit.running ) {
 		edit_update(&edit);
 	}
@@ -110,14 +110,16 @@ static void _init_ncurses(void) {
 	curs_set(1);
 
 	/* Initializes color pairs */
-	start_color();
-	init_pair(COLP_RED, COLOR_RED, COLOR_BLACK);
-	init_pair(COLP_GREEN, COLOR_GREEN, COLOR_BLACK);
-	init_pair(COLP_YELLOW, COLOR_YELLOW, COLOR_BLACK);
-	init_pair(COLP_BLUE, COLOR_BLUE, COLOR_BLACK);
-	init_pair(COLP_MAGENTA, COLOR_MAGENTA, COLOR_BLACK);
-	init_pair(COLP_CYAN, COLOR_CYAN, COLOR_BLACK);
-	init_pair(COLP_BLACK, COLOR_BLACK, COLOR_WHITE);
+	if( has_colors() ) {
+		start_color();
+		init_pair(COLP_RED, COLOR_RED, COLOR_BLACK);
+		init_pair(COLP_GREEN, COLOR_GREEN, COLOR_BLACK);
+		init_pair(COLP_YELLOW, COLOR_YELLOW, COLOR_BLACK);
+		init_pair(COLP_BLUE, COLOR_BLUE, COLOR_BLACK);
+		init_pair(COLP_MAGENTA, COLOR_MAGENTA, COLOR_BLACK);
+		init_pair(COLP_CYAN, COLOR_CYAN, COLOR_BLACK);
+		init_pair(COLP_BLACK, COLOR_BLACK, COLOR_WHITE);
+	}
 
 	refresh();
 }

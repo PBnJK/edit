@@ -74,7 +74,7 @@ static bool _ask_to_save(Edit *edit);
 static char *_get_mode_string(Edit *edit);
 
 /* Initializes the editor */
-void edit_new(Edit *edit, const char *filename) {
+void edit_init(Edit *edit, const char *filename) {
 	edit->line = 0;
 	edit->idx = 0;
 
@@ -92,10 +92,11 @@ void edit_new(Edit *edit, const char *filename) {
 	edit->running = true;
 
 	config_init(&edit->config);
+	edit_set_config_true(edit, "syn");
 
 	edit_change_to_normal(edit);
 
-	line_new(&edit->cmd);
+	line_init(&edit->cmd);
 	edit->cmd_char = '\0';
 	edit->cmd_num = 0;
 
@@ -106,7 +107,7 @@ void edit_new(Edit *edit, const char *filename) {
 	cmd_init(&edit->undo);
 	cmd_init(&edit->redo);
 
-	file_new(&edit->file, filename);
+	file_init(&edit->file, filename);
 	_update_gutter(edit);
 	_update_cursor_x(edit);
 
@@ -132,7 +133,7 @@ void edit_load(Edit *edit, const char *filename) {
 	}
 
 	file_free(&edit->file);
-	file_new(&edit->file, filename);
+	file_init(&edit->file, filename);
 
 	char *name = file_get_display_name(&edit->file);
 	edit_set_status(edit, "loaded file '%s'", name);
@@ -790,6 +791,16 @@ void edit_set_config(Edit *edit, char *key, char *value) {
 	config_set(&edit->config, key, value);
 }
 
+/* Sets a config option to true */
+void edit_set_config_true(Edit *edit, char *key) {
+	config_set_true(&edit->config, key);
+}
+
+/* Sets a config option to false */
+void edit_set_config_false(Edit *edit, char *key) {
+	config_set_false(&edit->config, key);
+}
+
 /* Gets a config option */
 char *edit_get_config(Edit *edit, char *key) {
 	return config_get(&edit->config, key);
@@ -1051,15 +1062,17 @@ static void _handle_complex_command(Edit *edit, const char *cmd) {
 
 		char *sp = strchr(args, ' ');
 		if( sp == NULL || sp[1] == '\0' ) {
-			edit_set_status(edit, "config needs a value");
+			edit_set_status(edit, "usage: setc[onfig] <key> [value]");
 			return;
 		}
 
 		*sp = '\0';
-		value = sp + 1;
+		if( sp[1] ) {
+			value = sp + 1;
+		}
 
 		edit_set_config(edit, key, value);
-		edit_set_status(edit, "'%s' '%s' = '%s'", args, key, value);
+		edit_set_status(edit, "'%s' = '%s'", key, value);
 		return;
 	}
 

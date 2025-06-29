@@ -56,7 +56,7 @@ typedef struct _Edit {
 	size_t last_ins_idx; /* Character index of the last insert */
 } Edit;
 
-void edit_new(Edit *edit, const char *filename);
+void edit_init(Edit *edit, const char *filename);
 void edit_free(Edit *edit);
 
 void edit_reload(Edit *edit);
@@ -114,10 +114,14 @@ void edit_render(Edit *edit);
 void edit_render_current_line(Edit *edit);
 void edit_render_line(Edit *edit, size_t idx);
 
-void edit_quit(Edit *edit);
-
 void edit_set_config(Edit *edit, char *key, char *value);
+
+void edit_set_config_true(Edit *edit, char *key);
+void edit_set_config_false(Edit *edit, char *key);
+
 char *edit_get_config(Edit *edit, char *key);
+
+void edit_quit(Edit *edit);
 
 Line *edit_get_current_line(Edit *edit);
 Line *edit_get_line(Edit *edit, size_t idx);

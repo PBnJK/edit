@@ -8,6 +8,9 @@
 #define MAX_CONFIGS (1 << 8)
 #define CONFIGS_MASK (MAX_CONFIGS - 1)
 
+#define CONFIG_TRUE "true"
+#define CONFIG_FALSE "false"
+
 typedef struct _ConfigOption {
 	char *key; /* Key (name) of this config */
 	uint32_t hash; /* Hash of the key */
@@ -25,6 +28,10 @@ void config_init(Config *config);
 void config_free(Config *config);
 
 bool config_set(Config *config, char *key, char *value);
+
+bool config_set_true(Config *config, char *key);
+bool config_set_false(Config *config, char *key);
+
 char *config_get(Config *config, char *key);
 
 bool config_remove(Config *config, char *key);

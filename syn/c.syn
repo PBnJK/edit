@@ -1,0 +1,7 @@
+# C language highlighting
+# PBnJK
+
+keyword MAGENTA for do while continue break switch case default if else goto return
+keyword MAGENTA typedef struct enum union
+keyword MAGENTA static const extern register volatile unsigned signed
+keyword MAGENTA void short int long float double char

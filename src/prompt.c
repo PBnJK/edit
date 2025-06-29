@@ -72,7 +72,7 @@ PromptOptResult prompt_opt_get(Prompt *prompt) {
 /* Gets a string prompt */
 char *prompt_str_get(Prompt *prompt) {
 	Line line;
-	line_new(&line);
+	line_init(&line);
 
 	int ch;
 	while( (ch = getch()) != '\n' ) {

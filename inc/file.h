@@ -6,6 +6,7 @@
 #include <stdio.h>
 
 #include "line.h"
+#include "config.h"
 
 #define MAX_FILE_NAME_SIZE (256)
 
@@ -16,11 +17,13 @@ typedef struct _File {
 	size_t length; /* Number of lines in the line array */
 	size_t capacity; /* Maximum capacity of the line array */
 
+	Config config; /* Configuration */
+
 	bool unnamed;
 	bool dirty;
 } File;
 
-bool file_new(File *file, const char *filename);
+bool file_init(File *file, const char *filename);
 void file_free(File *file);
 
 bool file_load(File *file, const char *filename);
@@ -29,6 +32,9 @@ bool file_save(File *file, const char *as);
 
 void file_render(File *file, size_t from, int gutter);
 void file_render_line(File *file, size_t idx, size_t from, int gutter);
+
+void file_render_color(File *file, size_t from, int gutter);
+void file_render_line_color(File *file, size_t idx, size_t from, int gutter);
 
 void file_mark_dirty(File *file);
 bool file_is_dirty(File *file);
@@ -50,6 +56,11 @@ size_t file_move_line_up(File *file, size_t idx);
 
 void file_shift_lines_up(File *file, size_t idx);
 void file_shift_lines_down(File *file, size_t idx);
+
+void file_set_extension(File *file, char *lang);
+
+void file_set_config(File *file, char *key, char *value);
+char *file_get_config(File *file, char *key);
 
 Line *file_get_line(File *file, size_t idx);
 long file_get_line_length(File *file, size_t idx);

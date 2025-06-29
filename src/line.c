@@ -12,6 +12,8 @@
 #include <ncurses.h>
 #endif
 
+#include "global.h"
+
 #include "line.h"
 
 static void _grow_string(Line *line);
@@ -22,7 +24,7 @@ static bool _is_string_full(Line *line);
 static size_t _next_power_of_two(size_t n);
 
 /* Creates a new empty line */
-void line_new(Line *line) {
+void line_init(Line *line) {
 	size_t size = sizeof(*line->text) * 8;
 	line->text = malloc(size);
 	if( !line->text ) {
@@ -34,6 +36,10 @@ void line_new(Line *line) {
 	line->capacity = 8;
 	line->length = 0;
 	memset(line->text, '\0', sizeof(*line->text) * line->capacity);
+
+	line->color.data = NULL;
+	line->color.capacity = 0;
+	line->color.size = 0;
 }
 
 /* Frees the line from memory */
@@ -71,6 +77,17 @@ void line_erase(Line *line) {
 void line_render(Line *line) {
 	clrtoeol();
 	addnstr(line->text, line->length);
+}
+
+/* Renders the line's contents with color */
+void line_render_color(Line *line) {
+	clrtoeol();
+	UNUSED(line);
+}
+
+/* Updates color data */
+void line_update_color(Line *line) {
+	UNUSED(line);
 }
 
 /* Replaces the character at @idx with @ch */

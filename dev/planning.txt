@@ -81,5 +81,21 @@ Inserting
 			- Is next NULL?
 			  Y - Create new entry, insert data, place into next, return TRUE
 			  N - Move to next entry, continue
-	
 
+# Syntax highlighting
+
+.syn files
+
+Syntax
+- # COMMENT
+- keyword <COLOR> <KEYWORD> [<KEYWORD> ...]
+- match <COLOR> '<REGEXP>'
+
+Colors
+- RED
+- GREEN
+- YELLOW
+- BLUE
+- MAGENTA
+- CYAN
+- BLACK

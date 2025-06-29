@@ -50,6 +50,7 @@ bool config_set(Config *config, char *key, char *value) {
 	uint32_t hash = _hash_string(key, strlen(key));
 	uint32_t idx = hash & CONFIGS_MASK;
 
+	value = value ? value : "";
 	ConfigOption *opt = config->values[idx];
 
 	/* If NULL, this is a new item we're inserting */
@@ -75,6 +76,16 @@ bool config_set(Config *config, char *key, char *value) {
 
 		opt = opt->next;
 	}
+}
+
+/* Alias for @config_set with "true" as the value */
+bool config_set_true(Config *config, char *key) {
+	return config_set(config, key, CONFIG_FALSE);
+}
+
+/* Alias for @config_set with "false" as the value */
+bool config_set_false(Config *config, char *key) {
+	return config_set(config, key, CONFIG_FALSE);
 }
 
 /* Gets the value of an item in the configuration */

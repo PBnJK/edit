@@ -2,7 +2,6 @@
  * File handling utilities
  */
 
-#include "prompt.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -16,12 +15,18 @@
 #endif
 
 #include "line.h"
+#include "prompt.h"
+#include "config.h"
 
 #include "file.h"
 
 #define DEFAULT_FILE_NAME "unnamed"
 
 static void _create_default_file(File *file);
+
+static void _render(File *file, size_t from, int gutter, void (*fn)(Line *));
+static void _render_line(
+	File *file, size_t idx, size_t from, int gutter, void (*fn)(Line *));
 
 static void _grow_line_array(File *file);
 static void _grow_line_array_to(File *file, size_t new_capacity);
@@ -31,10 +36,12 @@ static bool _is_line_array_full(File *file);
 static char *_ask_to_name(void);
 
 /* Creates a new file */
-bool file_new(File *file, const char *filename) {
+bool file_init(File *file, const char *filename) {
 	file->length = 0;
 	file->capacity = 4;
 	file->lines = malloc(sizeof(Line) * file->capacity);
+
+	config_init(&file->config);
 
 	return file_load(file, filename);
 }
@@ -75,6 +82,12 @@ bool file_load(File *file, const char *filename) {
 
 	strncpy(file->name, filename, MAX_FILE_NAME_SIZE - 1);
 
+	/* Get file extension */
+	char *dot = strrchr(file->name, '.');
+	if( dot && dot[1] ) {
+		file_set_extension(file, dot + 1);
+	}
+
 	FILE *fp = fopen(filename, "r");
 	if( fp ) {
 		bool ok = file_load_from_fp(file, fp);
@@ -98,7 +111,7 @@ bool file_load_from_fp(File *file, FILE *fp) {
 	memset(buf, 0, BUFSIZ);
 	buf[BUFSIZ - 1] = 0x55;
 
-	line_new(&line);
+	line_init(&line);
 
 	while( fgets(buf, BUFSIZ, fp) ) {
 		line_insert_str(&line, char_idx, buf);
@@ -115,7 +128,7 @@ bool file_load_from_fp(File *file, FILE *fp) {
 			char_idx = 0;
 
 			file_insert_line(file, line_idx++, &line);
-			line_new(&line);
+			line_init(&line);
 		} else {
 			buf[BUFSIZ - 1] = 0x55;
 			char_idx += BUFSIZ - 1;
@@ -165,24 +178,22 @@ bool file_save(File *file, const char *as) {
 
 /* Renders the file's contents */
 void file_render(File *file, size_t from, int gutter) {
-	const size_t maxy = getmaxy(stdscr) - 3;
-
-	for( size_t y = 0; y < maxy && y < file->length - from; ++y ) {
-		move(y, 0);
-
-		const size_t offset = y + from;
-		printw("%-*zu", gutter, offset + 1);
-		line_render(&file->lines[offset]);
-	}
+	_render(file, from, gutter, line_render);
 }
 
 /* Renders a single line from the file */
 void file_render_line(File *file, size_t idx, size_t from, int gutter) {
-	const size_t offset = idx + from;
+	_render_line(file, idx, from, gutter, line_render);
+}
 
-	move(idx, 0);
-	printw("%-*zu", gutter, offset + 1);
-	line_render(&file->lines[offset]);
+/* Renders the file's contents, with color */
+void file_render_color(File *file, size_t from, int gutter) {
+	_render(file, from, gutter, line_render_color);
+}
+
+/* Renders a single line from the file, with color */
+void file_render_line_color(File *file, size_t idx, size_t from, int gutter) {
+	_render_line(file, idx, from, gutter, line_render_color);
 }
 
 /* Marks a file as "dirty" (modified) */
@@ -218,7 +229,7 @@ char file_delete_char(File *file, size_t line, size_t idx) {
  */
 void file_insert_string(File *file, size_t idx, char *str) {
 	Line line;
-	line_new(&line);
+	line_init(&line);
 
 	line_insert_str(&line, 0, str);
 	file_insert_line(file, idx, &line);
@@ -227,7 +238,7 @@ void file_insert_string(File *file, size_t idx, char *str) {
 /* Inserts a line break into the file */
 void file_break_line(File *file, size_t line, size_t idx) {
 	Line new_line;
-	line_new(&new_line);
+	line_init(&new_line);
 
 	file_mark_dirty(file);
 
@@ -266,7 +277,7 @@ void file_break_line(File *file, size_t line, size_t idx) {
  */
 void file_insert_empty_line(File *file, size_t idx) {
 	Line line;
-	line_new(&line);
+	line_init(&line);
 
 	file_insert_line(file, idx, &line);
 }
@@ -341,7 +352,22 @@ void file_shift_lines_down(File *file, size_t idx) {
 		file->lines[i + 1] = file->lines[i];
 	}
 
-	line_new(&file->lines[idx]);
+	line_init(&file->lines[idx]);
+}
+
+/* Sets the extension of the file */
+void file_set_extension(File *file, char *lang) {
+	file_set_config(file, "ext", lang);
+}
+
+/* Sets a config option */
+void file_set_config(File *file, char *key, char *value) {
+	config_set(&file->config, key, value);
+}
+
+/* Gets a config option */
+char *file_get_config(File *file, char *key) {
+	return config_get(&file->config, key);
 }
 
 /* Returns the line at @idx */
@@ -400,6 +426,29 @@ static void _create_default_file(File *file) {
 	for( size_t i = 0; i < LEN; ++i ) {
 		file_insert_string(file, i, DEFAULT_FILE[i]);
 	}
+}
+
+/* Renders the file's contents, calling @fn on each line */
+static void _render(File *file, size_t from, int gutter, void (*fn)(Line *)) {
+	const size_t maxy = getmaxy(stdscr) - 3;
+
+	for( size_t y = 0; y < maxy && y < file->length - from; ++y ) {
+		move(y, 0);
+
+		const size_t offset = y + from;
+		printw("%-*zu", gutter, offset + 1);
+		fn(&file->lines[offset]);
+	}
+}
+
+/* Renders a single line in the file using @fn */
+static void _render_line(
+	File *file, size_t idx, size_t from, int gutter, void (*fn)(Line *)) {
+	const size_t offset = idx + from;
+
+	move(idx, 0);
+	printw("%-*zu", gutter, offset + 1);
+	fn(&file->lines[offset]);
 }
 
 /* Grows the array of lines */
