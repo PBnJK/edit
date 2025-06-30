@@ -24,16 +24,6 @@ target_compile_options(edit PRIVATE -Wall -Wextra -pedantic)
 
 target_include_directories(edit PRIVATE ${PROJECT_SOURCE_DIR}/inc)
 
-if(WIN32 OR MSVC)
-	include(pdcurses.cmake)
-	target_link_libraries(edit PRIVATE PDCurses)
-else()
-	find_package(Curses REQUIRED)
-	target_include_directories(edit PRIVATE ${CURSES_INCLUDE_DIRS})
-	target_link_libraries(edit PRIVATE ${CURSES_LIBRARIES})
-endif()
-
-
-
-
-
+find_package(Curses REQUIRED)
+target_include_directories(edit PRIVATE ${CURSES_INCLUDE_DIRS})
+target_link_libraries(edit PRIVATE ${CURSES_LIBRARIES})
