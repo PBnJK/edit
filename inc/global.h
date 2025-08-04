@@ -5,13 +5,17 @@
 #define MIN(A, B) (((A) < (B)) ? (A) : (B))
 
 /* Color pairs */
-#define COLP_RED (1)
-#define COLP_GREEN (2)
-#define COLP_YELLOW (3)
-#define COLP_BLUE (4)
-#define COLP_MAGENTA (5)
-#define COLP_CYAN (6)
-#define COLP_BLACK (7)
+typedef enum _ColorPair {
+	COLP_NONE = 0,
+	COLP_RED = 1,
+	COLP_GREEN = 2,
+	COLP_YELLOW = 3,
+	COLP_BLUE = 4,
+	COLP_MAGENTA = 5,
+	COLP_CYAN = 6,
+	COLP_BLACK = 7,
+	COLP_MAX = 8,
+} ColorPair;
 
 /* Ctrl + Key */
 #define CTRL(K) ((K) & 0x1f)
